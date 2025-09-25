@@ -55,10 +55,12 @@ O objetivo principal é criar um recurso educacional que não apenas forneça a 
 3.  **Instale as dependências:**
     ```bash
     pip install -r requirements.txt
+    pip install python-dotenv
+    pip install google-generativeai
     ```
 
 4.  **Configure as variáveis de ambiente:**
     - Crie um arquivo `.env` na raiz do projeto.
-    - Adicione sua chave de API: `API_KEY="sua_chave_secreta"`
+    - Adicione sua chave de API: `GOOGLE_API_KEY="sua_chave_secreta"`
 
 ---
