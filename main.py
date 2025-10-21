@@ -29,7 +29,7 @@ class ValidacaoRequest(BaseModel):
             }
         }
 
-# --- INICIALIZAÇÃO DA APLICAÇÃO FASTAPI (JÁ TINHA ISSO) ---
+# --- INICIALIZAÇÃO DA APLICAÇÃO FASTAPI ---
 app = FastAPI(
     title="Parceiro do TCC - API de Modelagem",
     description="API com múltiplos endpoints para gerar e validar modelos de sistemas de controle.",
