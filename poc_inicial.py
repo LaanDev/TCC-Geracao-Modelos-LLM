@@ -69,13 +69,13 @@ if __name__ == "__main__":
     # Para rodar um teste, comente os outros e descomente o desejado.
     
     # Teste 1: Sistema Massa-Mola-Amortecedor (Mecânico Translacional)
-    # descricao_problema = "Um sistema é composto por um bloco de massa 'M' conectado a uma parede por uma mola de constante elástica 'K' e um amortecedor com coeficiente de amortecimento viscoso 'B'. Uma força externa 'F(t)' é aplicada ao bloco. Considere o deslocamento do bloco 'x(t)' como a saída do sistema. O objetivo é encontrar a função de transferência G(s) = X(s) / F(s)."
+    descricao_problema = "Um sistema é composto por um bloco de massa 'M' conectado a uma parede por uma mola de constante elástica 'K' e um amortecedor com coeficiente de amortecimento viscoso 'B'. Uma força externa 'F(t)' é aplicada ao bloco. Considere o deslocamento do bloco 'x(t)' como a saída do sistema. O objetivo é encontrar a função de transferência G(s) = X(s) / F(s)."
     
     # Teste 2: Circuito RLC Série (Elétrico)
     # descricao_problema = "Um circuito elétrico é composto por um resistor 'R', um indutor 'L' e um capacitor 'C' conectados em série a uma fonte de tensão de entrada 'Vin(t)'. Considere a tensão sobre o capacitor, 'Vc(t)', como a saída do sistema. O objetivo é encontrar a função de transferência G(s) = Vc(s) / Vin(s)."
 
     # Teste 3: Circuito RC (Elétrico - 1ª Ordem)
-    descricao_problema = "Um circuito elétrico é composto por um resistor 'R' e um capacitor 'C' em série, alimentado por uma fonte de tensão de entrada 'Vin(t)'. A saída do sistema é a tensão sobre o capacitor, 'Vc(t)'. Encontre a função de transferência G(s) = Vc(s) / Vin(s)."
+    # descricao_problema = "Um circuito elétrico é composto por um resistor 'R' e um capacitor 'C' em série, alimentado por uma fonte de tensão de entrada 'Vin(t)'. A saída do sistema é a tensão sobre o capacitor, 'Vc(t)'. Encontre a função de transferência G(s) = Vc(s) / Vin(s)."
 
     # Teste 4: Sistema de Nível de Tanque (Processos)
     # descricao_problema = "Um tanque possui uma área de seção transversal constante 'A' e uma resistência hidráulica de saída 'R'. A vazão de entrada no tanque é 'q_in(t)' e a altura do líquido é 'h(t)'. A vazão de saída é proporcional à altura, de modo que 'q_out(t) = h(t)/R'. Considere a vazão de entrada como a entrada do sistema e a altura do líquido como a saída. Encontre a função de transferência G(s) = H(s) / Q_in(s)."
