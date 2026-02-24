@@ -37,39 +37,174 @@ O projeto foi construído sobre uma *stack* moderna de desenvolvimento em Python
 - **Servidor:** `Uvicorn` (servidor ASGI de alta performance).
 - **IA Generativa:** `google-generativeai` (Integração com modelo Gemini 1.5/Gemma).
 - **Engenharia:** `control` (Biblioteca Python de Sistemas de Controle).
-- **Ambiente:** Gerenciado via `venv`.
+- **Frontend:** React (Vite) – interface para consumir a API.
+- **Ambiente:** Gerenciado via `venv` (backend) e `npm` (frontend).
 
 ## 4. Status do Projeto
 
-✅ **Fase 1:** Fundamentação Teórica e Prova de Conceito (`poc_inicial.py`).
+✅ **Fase 1:** Fundamentação Teórica e Prova de Conceito (`scripts/poc_inicial.py`).
 ✅ **Fase 2:** Desenvolvimento do Backend/API (`main.py`).
 ✅ **Fase 3:** Implementação da Engenharia de Prompt e Saídas Estruturadas (JSON).
 ✅ **Fase 4:** Validação com problemas canônicos (Massa-Mola, RLC, Tanques, etc.).
-🚧 **Fase 5:** Desenvolvimento do Frontend (Interface Visual) - *Próxima Etapa*.
+✅ **Fase 5:** Desenvolvimento do Frontend (Interface Visual em React).
+
+### Estrutura do repositório
+
+| Pasta/arquivo | Conteúdo |
+|---------------|----------|
+| **Raiz** | API: `main.py`, `config.py`, `schemas.py`, `prompts.py`, `llm_service.py`, `requirements.txt`, `.env.example` |
+| **`docs/`** | Documentação: guias de instalação, solução de problemas, quota da API, etc. (índice em `docs/README.md`) |
+| **`scripts/`** | Scripts de utilidade: `verificar_instalacao.py`, `corrigir_pip.py`, `check_models.py`, `ativar_venv.bat`, `poc_inicial.py` |
+| **`frontend/`** | Interface React (Vite) para consumir a API |
+| **`tests/`** | Testes automatizados (pytest) |
 
 ## 5. Como Executar o Projeto
 
 ### Pré-requisitos
-É necessário ter o Python instalado e uma chave de API do Google (Google AI Studio).
+- **Python 3.11 ou superior** instalado
+- **Chave de API do Google** (Google AI Studio)
+- **Git** (opcional, para clonar o repositório)
 
-1. **Clone o repositório:**
-   ```bash
-   git clone [SEU LINK DO GIT AQUI]
-   cd TCC-Geracao-Modelos-LLM
-2. **Crie e ative o ambiente virtual:**
-   python -m venv venv
-  # Windows
-  .\venv\Scripts\activate
-  # macOS/Linux
-  source venv/bin/activate
-4. **Instale as dependências:**
-  pip install -r requirements.txt
-5. **Configure as variáveis de ambiente:**
-  Crie um arquivo chamado .env na raiz do projeto.
-  Adicione sua chave de API dentro dele:
-    GOOGLE_API_KEY="SUA_CHAVE_AQUI"
-6. **Execute a API:**
-  python main.py
-7. **Acesse a Documentação Interativa:**
-  Com o servidor rodando, abra seu navegador e acesse: 👉 http://127.0.0.1:8000/docs
-  Lá você poderá testar todos os endpoints da ferramenta diretamente pelo navegador (Swagger UI).
+> 📖 **Não tem Python instalado?** Consulte o guia completo: [`docs/INSTALACAO_PYTHON.md`](docs/INSTALACAO_PYTHON.md)
+
+### Passo a Passo
+
+#### 1. Verificar Instalação do Python
+Abra o **PowerShell** ou **Prompt de Comando** e execute:
+
+```powershell
+python --version
+```
+
+Você deve ver algo como: `Python 3.11.9`
+
+Se aparecer erro, siga o guia de instalação: [`docs/INSTALACAO_PYTHON.md`](docs/INSTALACAO_PYTHON.md)
+
+> 💡 **Dica:** Após instalar o Python e configurar o projeto, execute `python scripts/verificar_instalacao.py` para verificar se tudo está correto!
+
+#### 2. Clone ou Baixe o Repositório
+```bash
+git clone [SEU LINK DO GIT AQUI]
+cd TCC-Geracao-Modelos-LLM
+```
+
+Ou baixe o ZIP e extraia os arquivos.
+
+#### 3. Criar Ambiente Virtual
+```powershell
+# Criar o ambiente virtual
+python -m venv venv
+
+# Ativar o ambiente virtual (Windows)
+.\venv\Scripts\activate
+
+# Ativar o ambiente virtual (macOS/Linux)
+source venv/bin/activate
+```
+
+**Dica:** Quando o ambiente virtual estiver ativo, você verá `(venv)` no início da linha do terminal.
+
+> ⚠️ **Problema ao ativar no PowerShell?** Se aparecer erro de "execução de scripts desabilitada", use uma destas soluções:
+> - **Opção 1 (Recomendada):** Use o **Prompt de Comando (CMD)** em vez do PowerShell: `venv\Scripts\activate`
+> - **Opção 2:** Execute no PowerShell: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
+> - 📖 **Guia completo:** [`docs/SOLUCAO_POWERSHELL.md`](docs/SOLUCAO_POWERSHELL.md)
+
+#### 4. Instalar Dependências
+```powershell
+# Atualizar pip (recomendado)
+python -m pip install --upgrade pip
+
+# Instalar todas as dependências
+pip install -r requirements.txt
+```
+
+#### 5. Configurar Variáveis de Ambiente
+```powershell
+# Copiar o template
+copy .env.example .env
+```
+
+Depois, edite o arquivo `.env` e adicione sua chave de API:
+
+```env
+GOOGLE_API_KEY=sua_chave_api_aqui
+```
+
+**Como obter a chave:**
+1. Acesse: https://aistudio.google.com/app/apikey
+2. Faça login com sua conta Google
+3. Clique em "Create API Key"
+4. Copie a chave e cole no arquivo `.env`
+
+#### 6. Executar a API
+```powershell
+python main.py
+```
+
+Você deve ver uma mensagem como:
+```
+INFO:     Started server process
+INFO:     Uvicorn running on http://127.0.0.1:8000
+```
+
+#### 7. Acessar a Documentação Interativa
+Com o servidor rodando, abra seu navegador e acesse:
+
+👉 **http://127.0.0.1:8000/docs**
+
+Lá você poderá:
+- Ver todos os endpoints disponíveis
+- Testar a API diretamente pelo navegador (Swagger UI)
+- Ver exemplos de requisições e respostas
+
+**Alternativa:** Acesse **http://127.0.0.1:8000/redoc** para documentação no formato ReDoc.
+
+#### 8. Executar o Frontend (React) – opcional
+Para usar a interface web em React:
+
+1. **Instale o Node.js** (se ainda não tiver): https://nodejs.org/
+2. **Com a API rodando** em um terminal, abra outro terminal e execute:
+   ```powershell
+   cd frontend
+   npm install
+   npm run dev
+   ```
+3. Acesse **http://localhost:3000** no navegador.
+
+O frontend chama a API automaticamente (proxy configurado no Vite). Consulte [`frontend/README.md`](frontend/README.md) para mais detalhes.
+
+---
+
+### Comandos Úteis
+
+```powershell
+# Desativar ambiente virtual (quando terminar)
+deactivate
+
+# Verificar dependências instaladas
+pip list
+
+# Executar testes (após instalar pytest)
+pytest tests/ -v
+
+# Executar com Docker (se tiver Docker instalado)
+docker-compose up -d api
+
+# Frontend (em outro terminal, com a API rodando)
+cd frontend && npm install && npm run dev
+```
+
+---
+
+### Solução de Problemas
+
+**Problema:** `ModuleNotFoundError: No module named 'fastapi'`
+- **Solução:** Certifique-se de que o ambiente virtual está ativado e execute `pip install -r requirements.txt`
+
+**Problema:** `GOOGLE_API_KEY not found`
+- **Solução:** Verifique se o arquivo `.env` existe na raiz do projeto e contém `GOOGLE_API_KEY=sua_chave`
+
+**Problema:** `Port 8000 is already in use`
+- **Solução:** Pare o processo que está usando a porta 8000 ou altere a porta no `config.py`
+
+Para mais detalhes, consulte a pasta **docs/** (por exemplo [`docs/INSTALACAO_PYTHON.md`](docs/INSTALACAO_PYTHON.md), [`docs/PASSO_A_PASSO.md`](docs/PASSO_A_PASSO.md), [`docs/QUOTA_API.md`](docs/QUOTA_API.md), [`docs/SOLUCAO_ERRO_500.md`](docs/SOLUCAO_ERRO_500.md)).

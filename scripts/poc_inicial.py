@@ -1,4 +1,15 @@
+"""
+Prova de Conceito inicial (Fase 1 do TCC).
+Execute na raiz do projeto: python scripts/poc_inicial.py
+"""
 import os
+import sys
+from pathlib import Path
+
+# Garantir que .env da raiz seja carregado
+raiz = Path(__file__).resolve().parent.parent
+os.chdir(raiz)
+
 from dotenv import load_dotenv
 import google.generativeai as genai
 
@@ -9,7 +20,7 @@ try:
     genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 except Exception as e:
     print(f"Erro ao configurar a API. Verifique seu arquivo .env e a chave. Erro: {e}")
-    exit()
+    sys.exit(1)
 
 # --------------------------------------------------------------------
 

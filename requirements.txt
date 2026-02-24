@@ -1,8 +1,32 @@
-fastapi
-uvicorn
-google-generativeai
-python-dotenv
-pydantic
-control
-numpy
-matplotlib
+# =============================================================================
+# TCC - Geração Automática de Modelos para Controle Automático via LLMs
+# Dependências do Projeto
+# =============================================================================
+
+# --- Framework Web ---
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# --- Validação e Configuração ---
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# --- IA Generativa ---
+google-generativeai>=0.3.0
+
+# --- Variáveis de Ambiente ---
+python-dotenv>=1.0.0
+
+# --- Engenharia de Controle ---
+control>=0.9.4
+numpy>=1.24.0
+matplotlib>=3.7.0
+
+# --- Testes ---
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+httpx>=0.26.0  # Cliente HTTP para testes de API
+pytest-cov>=4.1.0  # Cobertura de testes
+
+# --- Opcional: Melhorias futuras ---
+# tenacity>=8.2.0  # Para retry mais robusto

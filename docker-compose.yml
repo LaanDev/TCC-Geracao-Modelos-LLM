@@ -1,0 +1,80 @@
+# =============================================================================
+# Docker Compose para desenvolvimento e produção
+# TCC - API de Modelagem de Sistemas de Controle
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # --- Aplicação Principal ---
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tcc-api-modelagem
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-models/gemma-3-12b-it}
+      - LLM_TIMEOUT=${LLM_TIMEOUT:-60}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - HOST=0.0.0.0
+      - PORT=8000
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - tcc-network
+
+  # --- Desenvolvimento com hot-reload ---
+  api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tcc-api-dev
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-models/gemma-3-12b-it}
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - tcc-network
+    profiles:
+      - dev
+
+networks:
+  tcc-network:
+    driver: bridge
+
+# =============================================================================
+# Comandos úteis:
+# 
+# Produção:
+#   docker-compose up -d api
+#
+# Desenvolvimento (com hot-reload):
+#   docker-compose --profile dev up api-dev
+#
+# Rebuild:
+#   docker-compose build --no-cache
+#
+# Logs:
+#   docker-compose logs -f api
+#
+# Parar:
+#   docker-compose down
+# =============================================================================

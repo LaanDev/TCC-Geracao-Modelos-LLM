@@ -1,0 +1,61 @@
+# =============================================================================
+# Docker Ignore - Arquivos excluídos do contexto de build
+# =============================================================================
+
+# --- Git ---
+.git
+.gitignore
+
+# --- Python ---
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+
+# --- Testes ---
+tests/
+pytest.ini
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Ambiente ---
+.env
+.env.local
+.env.*.local
+
+# --- Documentação ---
+*.md
+!README.md
+docs/
+
+# --- Misc ---
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# --- Docker ---
+Dockerfile
+docker-compose*.yml
+.docker/
+
+# --- Cursor ---
+.cursor/
+.cursorignore
+.cursorindexingignore
+
+# --- POC/Scripts de teste ---
+poc_inicial.py
+check_models.py
