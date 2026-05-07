@@ -22,9 +22,14 @@ O objetivo é criar um "tutor virtual" que não apenas resolve o problema, mas e
 
 ## 2. Funcionalidades e Endpoints da API
 
-A ferramenta possui um *backend* robusto desenvolvido em **FastAPI**, expondo três rotas principais:
+A ferramenta possui um *backend* robusto desenvolvido em **FastAPI**, expondo cinco rotas principais:
 
 - **`POST /gerar-apenas-ft`**: Rota rápida. Recebe a descrição e retorna apenas a função de transferência final para validação ágil.
+- **`POST /gerar-diagrama-por-ft`**: Recebe a FT e devolve código Python que desenha **diagrama de blocos completo** (matplotlib: caixas, setas, somadores, ramo de realimentação quando aplicável, mais vista equivalente com $H(s)=1$ além da cadeia $U\to[G]\to Y$ quando só se conhece a FT) e, se possível, simulação com `control`. O backend **executa** esse código em subprocesso (sem janela), coleta os `.png` gerados e devolve em **`diagramas_png_base64`** (lista de strings Base64 puras; no React/HTML use `src={\`data:image/png;base64,${x}\`}`).
+- **`POST /gerar-ft-e-diagrama`**: Igual fluxo combinado em um JSON — FT derivada da descrição mais o mesmo tipo de código de diagrama de blocos alinhado ao enunciado (sem inventar malha fechada se for aberta explícita), com **`diagramas_png_base64`** após execução automática.
+
+Campos extras nessas respostas: `execucao_diagrama_ok` (bool), `log_execucao_diagrama` (texto quando a execução falha ou quando `DEBUG=true`). Variáveis de ambiente: `EXECUTE_DIAGRAM_CODE` e `DIAGRAM_EXECUTION_TIMEOUT` (ver `.env.example`). **Atenção:** executar código gerado pelo LLM tem risco — em produção considere desativar ou isolar mais fortemente.
+
 - **`POST /gerar-analise-completa`**: Rota principal. Retorna um objeto JSON detalhado contendo todo o raciocínio matemático, a explicação didática e o código para geração do diagrama.
 - **`POST /validar-minha-resposta`**: Rota de tutor. O aluno envia o problema e a sua própria resposta; a IA avalia se está correto e fornece feedback construtivo.
 
@@ -84,7 +89,7 @@ Se aparecer erro, siga o guia de instalação: [`docs/INSTALACAO_PYTHON.md`](doc
 
 #### 2. Clone ou Baixe o Repositório
 ```bash
-git clone [SEU LINK DO GIT AQUI]
+git clone https://github.com/LaanDev/TCC-Geracao-Modelos-LLM
 cd TCC-Geracao-Modelos-LLM
 ```
 

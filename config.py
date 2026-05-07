@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     llm_timeout: int = 60
     llm_max_retries: int = 3
 
+    # Execução automática do código gerado para diagramas (subprocesso isolado)
+    execute_diagram_code: bool = True
+    diagram_execution_timeout: int = 45
+
     host: str = "127.0.0.1"
     port: int = 8000
     debug: bool = False

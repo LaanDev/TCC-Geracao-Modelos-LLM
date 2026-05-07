@@ -8,7 +8,7 @@ Autor: Laan Carlos Nunes Mendes de Barros
 import logging
 from contextlib import asynccontextmanager
 from functools import wraps
-from typing import Callable
+from typing import Any, Callable, Type
 
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,7 +19,10 @@ from config import settings
 from schemas import (
     ProblemaRequest,
     ValidacaoRequest,
+    FuncaoTransferenciaRequest,
     FuncaoTransferenciaResponse,
+    DiagramaBlocosResponse,
+    FuncaoTransferenciaEDiagramaResponse,
     AnaliseCompletaResponse,
     ValidacaoResponse,
     ErrorResponse,
@@ -28,8 +31,13 @@ from prompts import (
     formatar_prompt_ft,
     formatar_prompt_analise_completa,
     formatar_prompt_validacao,
+    formatar_prompt_diagrama_por_ft,
+    formatar_prompt_ft_e_diagrama,
 )
+from pydantic import BaseModel
+
 from llm_service import get_llm_service, LLMError, LLMParseError
+from diagram_executor import DiagramExecResult, execute_diagram_python
 
 # -----------------------------------------------------------------------------
 # Logging
@@ -42,7 +50,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("api")
 
-APP_VERSION = "6.0.0"
+APP_VERSION = "6.1.0"
 MAX_DESCRIPTION_LOG_LENGTH = 100
 
 
@@ -91,8 +99,8 @@ na modelagem de sistemas dinâmicos.
     """,
     version=APP_VERSION,
     lifespan=lifespan,
-    contact={"name": "Laan Carlos", "email": "laan.barros@exemplo.com"},
-    license_info={"name": "MIT"},
+    contact={"name": "Laan Carlos Barros", "email": "laancarlosbarros@gmail.com"},
+    license_info={"name": "CEFET-MG"},
 )
 
 app.add_middleware(
@@ -164,6 +172,28 @@ def _truncate_for_log(description: str, max_len: int = MAX_DESCRIPTION_LOG_LENGT
     return (description[:max_len] + "...") if len(description) > max_len else description
 
 
+def _attach_diagram_execution(payload: dict[str, Any], exe: DiagramExecResult) -> None:
+    """Acrescenta campos de execução automática do código matplotlib ao payload."""
+    payload["diagramas_png_base64"] = exe.diagramas_png_base64
+    payload["execucao_diagrama_ok"] = exe.execucao_ok
+    if not exe.execucao_ok or settings.debug:
+        payload["log_execucao_diagrama"] = exe.log_execucao
+    else:
+        payload["log_execucao_diagrama"] = None
+
+
+def _generate_diagram_then_execute(
+    prompt: str, response_schema: Type[BaseModel], handler_name: str
+) -> dict[str, Any]:
+    """Chama LLM e executa código de diagrama no subprocesso quando habilitado."""
+    llm = get_llm_service()
+    payload = llm.generate(prompt, response_schema)
+    exe = execute_diagram_python(payload.get("codigo_diagrama") or "")
+    _attach_diagram_execution(payload, exe)
+    logger.info("%s exec diagram: ok=%s imagens=%d", handler_name, exe.execucao_ok, len(exe.diagramas_png_base64))
+    return payload
+
+
 @app.post(
     "/gerar-apenas-ft",
     response_model=FuncaoTransferenciaResponse,
@@ -184,6 +214,51 @@ def api_gerar_apenas_ft(request: ProblemaRequest):
     llm = get_llm_service()
     prompt = formatar_prompt_ft(request.descricao)
     return llm.generate(prompt, FuncaoTransferenciaResponse)
+
+
+@app.post(
+    "/gerar-diagrama-por-ft",
+    response_model=DiagramaBlocosResponse,
+    responses={500: {"model": ErrorResponse}},
+    summary="Gera diagrama de blocos a partir da FT",
+    description="""
+Recebe uma função de transferência textual e devolve código Python que desenha
+**diagrama de blocos completo** (blocos, setas, malha de soma, realimentação quando
+cabível — incluindo vista equivalente com H(s)=1 além da cadeia U→[G]→Y) com matplotlib,
+além de `control` para simulação quando a FT permitir valores numéricos.
+
+**Ideal para:** quando a FT já foi obtida e você quer o esquema e gráficos de apoio.
+    """,
+    tags=["Modelagem"],
+)
+@with_llm_error_handling
+def api_gerar_diagrama_por_ft(request: FuncaoTransferenciaRequest):
+    """Gera código de diagrama de blocos usando uma FT já informada."""
+    logger.info("Requisição /gerar-diagrama-por-ft")
+    prompt = formatar_prompt_diagrama_por_ft(request.funcao_transferencia)
+    return _generate_diagram_then_execute(prompt, DiagramaBlocosResponse, "gerar-diagrama-por-ft")
+
+
+@app.post(
+    "/gerar-ft-e-diagrama",
+    response_model=FuncaoTransferenciaEDiagramaResponse,
+    responses={500: {"model": ErrorResponse}},
+    summary="Gera FT e diagrama de blocos no mesmo endpoint",
+    description="""
+Recebe a descrição do sistema dinâmico e retorna a FT mais código Python para
+**diagrama de blocos completo** segundo a física/topologia inferida (sem inventar malha
+fechada quando o problema for explicitamente malha aberta), com matplotlib e `control`.
+
+**Ideal para:** fluxo completo de modelagem mais esquema de blocos pronto para executar.
+    """,
+    tags=["Modelagem"],
+)
+@with_llm_error_handling
+def api_gerar_ft_e_diagrama(request: ProblemaRequest):
+    """Gera FT e código de diagrama de blocos em uma única resposta."""
+    logger.info("Requisição /gerar-ft-e-diagrama: %s", _truncate_for_log(request.descricao))
+    prompt = formatar_prompt_ft_e_diagrama(request.descricao)
+    return _generate_diagram_then_execute(prompt, FuncaoTransferenciaEDiagramaResponse, "gerar-ft-e-diagrama")
 
 
 @app.post(

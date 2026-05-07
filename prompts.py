@@ -310,6 +310,87 @@ Não inclua texto fora do JSON."""
 
 
 # ============================================================================
+# PROMPT: GERAR DIAGRAMA DE BLOCOS A PARTIR DA FT
+# ============================================================================
+
+PROMPT_DIAGRAMA_POR_FT = """## Tarefa
+Você receberá uma função de transferência em texto (G(s), relação Y/U, etc.).
+Gere um programa Python único e executável com DUAS partes:
+
+**(1) Diagrama de blocos completo em matplotlib:** setas, retângulos (`FancyBboxPatch`),
+somador circular (`Circle`, fundo branco, "+" e "-" nas entradas), realimentação com
+trechos ortogonais quando houver malha fechada, rótulos de sinais (ex.: r"$U(s)$").
+
+**(2) `control` + gráfico de apoio:** construa `tf` só se houver coeficientes numéricos na
+entrada (não invente valores só para simular). Caso só existam símbolos (M, K, ...),
+entregue o diagrama simbólico e mensagens nos `print`, sem TF numérica.
+Com FT numérica, inclua pelo menos resposta ao degrau OU pzmap.
+
+**Interpretação apenas com a FT:** além do caminho U->[G(s)]->Y, desenhe em **outro subplot**
+ou **outra figura** uma malha **equivalente** com realimentação unitária H(s)=1:
+referência -> somador -> [G(s)] -> saída, com Y entrando na entrada "-" do somador.
+No título explique que H=1 é **didático** quando não há sensor físico na FT fornecida.
+Cascata G1, G2 só se inequívoco na expressão.
+
+**API:** responda somente JSON com a chave "codigo_diagrama"; o valor é uma string com o
+código completo; use \\n para novas linhas no JSON.
+Finalize com um `plt.show()` OU `plt.savefig("diagrama_blocos.png", dpi=150, bbox_inches="tight")` + `print`.
+Use `matplotlib.patches`: `FancyBboxPatch`, `FancyArrowPatch`, `Circle`.
+O servidor **executa** o código automaticamente em ambiente **sem tela** (Agg): `plt.show()`
+vira captura de PNG; arquivos `.png` escritos no diretório atual do script também são coletados.
+
+**matplotlib / mathtext (obrigatório):**
+- Dentro de mathtext, **não** use comandos iniciados por barra dentro de `"$ ... $"` com aspas
+  duplas comuns (ex.: string com frac sem barra escape dupla vira erro: Python trata o par `\\barra`+`f` como **avanço de formulário**).
+  Use sempre string **bruta** com comandos matemáticos, por exemplo
+  **`r'$\\frac{{X_1(s)}}{{U(s)}}$'`** (no `.py` isso aparece como dólar‑frac‑chaves bem formadas),
+  ou escapes duplicados antes de comandos iniciados por barra se usar aspas duplas.
+- `plt.tight_layout()` pode falhar com `aspect='equal'` e texto mathtext; prefira omitir ou
+  `try: plt.tight_layout(); except Exception: pass`.
+
+## Função de Transferência
+"{funcao_transferencia}"
+
+## Formato de Resposta OBRIGATÓRIO
+{{
+  "codigo_diagrama": "..."
+}}"""
+
+
+# ============================================================================
+# PROMPT: GERAR FT + DIAGRAMA A PARTIR DA DESCRIÇÃO
+# ============================================================================
+
+PROMPT_FT_E_DIAGRAMA = """## Tarefa
+1) A partir da descrição, derive a função de transferência pedida (string "G(s) = ...").
+2) Produza código Python único executável que:
+   - Desenhe o diagrama de blocos completo alinhado à física e à topologia inferidas
+     (planta, controlador prévio, sensor, distúrbio, somadores e realimentação **somente**
+     quando o enunciado suportar; **não** invente malha fechada se for malha aberta explícita).
+   - Mesmo estilo matplotlib de PROMPT_DIAGRAMA_POR_FT (`FancyBboxPatch`,
+     `FancyArrowPatch`, `Circle`, `ax.axis("off")`).
+   - `control.tf` apenas com parâmetros numéricos no texto; senão diagrama simbólico + prints
+     pedindo valores.
+   - Com FT numérica, gráfico de apoio (degrau e/ou pzmap).
+
+## Regras de saída (API)
+1. JSON somente com "funcao_transferencia" e "codigo_diagrama".
+2. codigo_diagrama é uma string única com \\n dentro do JSON.
+3. O servidor executa o código em modo **headless**: `plt.show()` e `savefig(...)` produzem PNG automaticamente.
+4. **Mathtext:** preferir strings brutas tipo `ax.text(..., r'$\\frac{{a}}{{b}}$')` ou barras doubled em aspas não-brutas.
+5. **`plt.tight_layout()`**: omitir ou `try`/`except` (pode falhar com `aspect='equal'`).
+
+## Descrição do Sistema
+"{descricao}"
+
+## Formato de Resposta OBRIGATÓRIO
+{{
+  "funcao_transferencia": "G(s) = ...",
+  "codigo_diagrama": "..."
+}}"""
+
+
+# ============================================================================
 # CONSTANTES DE CONFIGURAÇÃO DE PROMPT
 # ============================================================================
 
@@ -347,6 +428,18 @@ def formatar_prompt_validacao(descricao: str, funcao_transferencia_usuario: str)
         descricao=_normalize_text(descricao),
         funcao_transferencia_usuario=_normalize_text(funcao_transferencia_usuario),
     )
+
+
+def formatar_prompt_diagrama_por_ft(funcao_transferencia: str) -> str:
+    """Prompt para gerar código de diagrama de blocos a partir da FT."""
+    return PROMPT_DIAGRAMA_POR_FT.format(
+        funcao_transferencia=_normalize_text(funcao_transferencia),
+    )
+
+
+def formatar_prompt_ft_e_diagrama(descricao: str) -> str:
+    """Prompt para gerar FT e código de diagrama a partir da descrição."""
+    return PROMPT_FT_E_DIAGRAMA.format(descricao=_normalize_text(descricao))
 
 
 def get_generation_config() -> dict:

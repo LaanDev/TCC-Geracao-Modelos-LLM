@@ -11,6 +11,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from diagram_executor import DiagramExecResult
+
 # Mock das configurações antes de importar
 os.environ["GOOGLE_API_KEY"] = "fake-api-key-for-testing"
 os.environ["LOG_LEVEL"] = "WARNING"
@@ -58,6 +60,37 @@ def mock_llm_analise():
             "funcao_transferencia": "G(s) = 1 / (RCs + 1)",
             "analise_resultado": "Sistema de 1ª ordem, estável, polo em s = -1/RC",
             "codigo_diagrama": "import control as ctrl\nG = ctrl.tf([1], [R*C, 1])"
+        }
+        mock.return_value = service
+        yield service
+
+
+@pytest.fixture
+def mock_llm_diagram_por_ft():
+    """Mock LLM retornando apenas codigo_diagrama."""
+    with patch("main.get_llm_service") as mock:
+        service = MagicMock()
+        service.generate.return_value = {
+            "codigo_diagrama": (
+                "import matplotlib.pyplot as plt\n"
+                "plt.figure(); plt.plot([0, 1], [0, 1]); plt.show()"
+            )
+        }
+        mock.return_value = service
+        yield service
+
+
+@pytest.fixture
+def mock_llm_ft_e_diagrama():
+    """Mock LLM para /gerar-ft-e-diagrama."""
+    with patch("main.get_llm_service") as mock:
+        service = MagicMock()
+        service.generate.return_value = {
+            "funcao_transferencia": "G(s) = 1 / (s + 1)",
+            "codigo_diagrama": (
+                "import matplotlib.pyplot as plt\n"
+                "plt.figure(); plt.plot([0, 1], [0, 1]); plt.show()"
+            ),
         }
         mock.return_value = service
         yield service
@@ -213,6 +246,54 @@ class TestEndpointAnaliseCompleta:
 # ============================================================================
 # TESTES: Endpoint /validar-minha-resposta
 # ============================================================================
+
+class TestEndpointDiagrama:
+    """Diagrama por FT e FT+diagrama incluem execução automática."""
+
+    _PNG_1X1 = (
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+
+    @pytest.mark.api
+    @patch("main.execute_diagram_python")
+    def test_gerar_diagrama_por_ft_retorna_imagens(
+        self, mock_exec, client, mock_llm_diagram_por_ft
+    ):
+        mock_exec.return_value = DiagramExecResult(
+            diagramas_png_base64=[self._PNG_1X1],
+            execucao_ok=True,
+            log_execucao="",
+        )
+        response = client.post(
+            "/gerar-diagrama-por-ft",
+            json={"funcao_transferencia": "G(s) = 1/(s+1)"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "codigo_diagrama" in data
+        assert data["execucao_diagrama_ok"] is True
+        assert len(data["diagramas_png_base64"]) == 1
+        mock_exec.assert_called_once()
+
+    @pytest.mark.api
+    @patch("main.execute_diagram_python")
+    def test_gerar_ft_e_diagrama_retorna_imagens(
+        self, mock_exec, client, mock_llm_ft_e_diagrama
+    ):
+        mock_exec.return_value = DiagramExecResult(
+            diagramas_png_base64=[self._PNG_1X1],
+            execucao_ok=True,
+            log_execucao="",
+        )
+        response = client.post(
+            "/gerar-ft-e-diagrama",
+            json={"descricao": "Circuito RC série com saída no capacitor para teste"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["funcao_transferencia"]
+        assert len(data["diagramas_png_base64"]) == 1
+
 
 class TestEndpointValidacao:
     """Testes para o endpoint de validação."""
