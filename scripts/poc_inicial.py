@@ -11,13 +11,13 @@ raiz = Path(__file__).resolve().parent.parent
 os.chdir(raiz)
 
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai
 
 # --- CONFIGURAÇÃO DA API ---
 # Carrega as variáveis de ambiente (sua chave de API) do arquivo .env
 load_dotenv()
 try:
-    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+    client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 except Exception as e:
     print(f"Erro ao configurar a API. Verifique seu arquivo .env e a chave. Erro: {e}")
     sys.exit(1)
@@ -66,8 +66,10 @@ def gerar_modelo_com_llm(descricao_problema: str) -> str:
     
     try:
         # Modelo que se provou estável para sua chave de API
-        model = genai.GenerativeModel('models/gemma-3-12b-it')
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="models/gemma-3-12b-it",
+            contents=prompt,
+        )
         return response.text
 
     except Exception as e:

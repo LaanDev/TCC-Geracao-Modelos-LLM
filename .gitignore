@@ -211,3 +211,7 @@ frontend/node_modules/
 frontend/dist/
 frontend/.env
 frontend/.env.local
+
+# Diagramas PNG gerados automaticamente pela execução do código do LLM
+# (scripts .py de exemplo em diagrams/ continuam versionados normalmente)
+diagrams/*.png

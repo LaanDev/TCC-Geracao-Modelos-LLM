@@ -54,7 +54,7 @@ def verificar_dependencias():
         "fastapi": "FastAPI",
         "uvicorn": "Uvicorn",
         "pydantic": "Pydantic",
-        "google.generativeai": "Google Generative AI",
+        "google.genai": "Google GenAI",
         "dotenv": "python-dotenv",
         "control": "python-control"
     }

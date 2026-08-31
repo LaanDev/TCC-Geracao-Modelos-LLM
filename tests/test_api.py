@@ -25,13 +25,12 @@ os.environ["LOG_LEVEL"] = "WARNING"
 @pytest.fixture
 def client():
     """Cliente de teste com LLM mockado."""
-    with patch('llm_service.genai') as mock_genai:
-        # Mock a configuração da API
-        mock_genai.configure = MagicMock()
-        
+    with patch('llm_service.genai'):
+        # google.genai.Client(...) fica mockado; nenhuma chamada real é feita.
+
         # Import app after mocking
         from main import app
-        
+
         with TestClient(app) as test_client:
             yield test_client
 
@@ -85,8 +84,9 @@ def mock_llm_ft_e_diagrama():
     """Mock LLM para /gerar-ft-e-diagrama."""
     with patch("main.get_llm_service") as mock:
         service = MagicMock()
+        # Mesma forma canônica do verificador SymPy para descrições RC+Vc típicas de teste
         service.generate.return_value = {
-            "funcao_transferencia": "G(s) = 1 / (s + 1)",
+            "funcao_transferencia": "G(s) = 1 / (RCs + 1)",
             "codigo_diagrama": (
                 "import matplotlib.pyplot as plt\n"
                 "plt.figure(); plt.plot([0, 1], [0, 1]); plt.show()"
@@ -201,37 +201,53 @@ class TestEndpointApenasFT:
 
 class TestEndpointAnaliseCompleta:
     """Testes para o endpoint de análise completa."""
-    
+
+    _PNG_1X1 = (
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+
+    def _mock_exec_result(self):
+        return DiagramExecResult(
+            diagramas_png_base64=[self._PNG_1X1],
+            execucao_ok=True,
+            log_execucao="",
+            diagramas_arquivos=["diagrams/diagrama_rota5_ex1.png"],
+        )
+
     @pytest.mark.api
-    def test_analise_completa_sucesso(self, client, mock_llm_analise):
+    @patch("main.execute_diagram_python")
+    def test_analise_completa_sucesso(self, mock_exec, client, mock_llm_analise):
         """Deve retornar análise completa com sucesso."""
+        mock_exec.return_value = self._mock_exec_result()
         response = client.post(
             "/gerar-analise-completa",
             json={"descricao": "Circuito RC série com saída no capacitor"}
         )
-        
+
         assert response.status_code == 200
         data = response.json()
-        
+
         # Verifica todas as chaves esperadas
         assert "lei_aplicada" in data
         assert "equacao_diferencial" in data
         assert "passos_laplace" in data
         assert "funcao_transferencia" in data
         assert "analise_resultado" in data
-    
+
     @pytest.mark.api
-    def test_analise_completa_retorna_codigo(self, client, mock_llm_analise):
+    @patch("main.execute_diagram_python")
+    def test_analise_completa_retorna_codigo(self, mock_exec, client, mock_llm_analise):
         """Deve retornar código Python para diagrama."""
+        mock_exec.return_value = self._mock_exec_result()
         response = client.post(
             "/gerar-analise-completa",
             json={"descricao": "Circuito RC série"}
         )
-        
+
         data = response.json()
         assert "codigo_diagrama" in data
         assert "import" in data.get("codigo_diagrama", "")
-    
+
     @pytest.mark.api
     def test_analise_completa_descricao_invalida(self, client):
         """Deve rejeitar descrição inválida."""
@@ -239,8 +255,117 @@ class TestEndpointAnaliseCompleta:
             "/gerar-analise-completa",
             json={"descricao": "x"}
         )
-        
+
         assert response.status_code == 422
+
+    @pytest.mark.api
+    @patch("main.execute_diagram_python")
+    def test_analise_completa_roda_verificacao_de_ft(self, mock_exec, client, mock_llm_analise):
+        """/gerar-analise-completa também deve expor os campos de verificação (sem retry)."""
+        mock_exec.return_value = self._mock_exec_result()
+        response = client.post(
+            "/gerar-analise-completa",
+            json={"descricao": "Circuito RC série com saída no capacitor"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["verificacao_executada"] is True
+        assert data["verificacao_ft_ok"] is True
+        assert data["nova_tentativa_pos_verificacao"] is False
+        mock_llm_analise.generate.assert_called_once()
+
+    @pytest.mark.api
+    @patch("main.execute_diagram_python")
+    def test_analise_completa_sem_grafo_nao_executa_verificacao(
+        self, mock_exec, client, mock_llm_analise
+    ):
+        """Resposta sem 'grafo_diagrama' não deve quebrar nem falsamente reprovar."""
+        mock_exec.return_value = self._mock_exec_result()
+        response = client.post(
+            "/gerar-analise-completa",
+            json={"descricao": "Circuito RC série com saída no capacitor"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["verificacao_grafo_executada"] is False
+        assert data["verificacao_grafo_ok"] is True
+
+    @pytest.mark.api
+    @patch("main.execute_diagram_python")
+    def test_analise_completa_valida_grafo_coerente(self, mock_exec, client):
+        """LLM emite grafo_diagrama coerente com a FT -> verificacao_grafo_ok=True."""
+        mock_exec.return_value = self._mock_exec_result()
+        grafo = {
+            "nos": [
+                {"id": "u", "tipo": "entrada"},
+                {"id": "g", "tipo": "bloco", "ganho": "1/(R*C*s+1)"},
+                {"id": "y", "tipo": "saida"},
+            ],
+            "arestas": [
+                {"origem": "u", "destino": "g", "sinal": "+"},
+                {"origem": "g", "destino": "y", "sinal": "+"},
+            ],
+        }
+        with patch("main.get_llm_service") as mock_get_llm:
+            service = MagicMock()
+            service.generate.return_value = {
+                "lei_aplicada": "Lei de Kirchhoff das Tensões (LKT)",
+                "equacao_diferencial": "RC dVc/dt + Vc = Vin",
+                "passos_laplace": "Aplicando Laplace: RCs*Vc(s) + Vc(s) = Vin(s)",
+                "funcao_transferencia": "G(s) = 1 / (RCs + 1)",
+                "analise_resultado": "Sistema de 1a ordem, estável.",
+                "codigo_diagrama": "import matplotlib.pyplot as plt\nplt.plot([0])\nplt.show()",
+                "grafo_diagrama": grafo,
+            }
+            mock_get_llm.return_value = service
+
+            response = client.post(
+                "/gerar-analise-completa",
+                json={"descricao": "Circuito RC série com saída no capacitor"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["verificacao_grafo_executada"] is True
+        assert data["verificacao_grafo_ok"] is True
+        assert data["mensagem_verificacao_grafo"] is None
+
+    @pytest.mark.api
+    @patch("main.execute_diagram_python")
+    def test_analise_completa_grafo_malformado_nao_quebra_resposta(self, mock_exec, client):
+        """Grafo com estrutura inválida sinaliza falha, não derruba a API."""
+        mock_exec.return_value = self._mock_exec_result()
+        grafo_sem_saida = {
+            "nos": [
+                {"id": "u", "tipo": "entrada"},
+                {"id": "g", "tipo": "bloco", "ganho": "1/(R*C*s+1)"},
+            ],
+            "arestas": [{"origem": "u", "destino": "g", "sinal": "+"}],
+        }
+        with patch("main.get_llm_service") as mock_get_llm:
+            service = MagicMock()
+            service.generate.return_value = {
+                "lei_aplicada": "Lei de Kirchhoff das Tensões (LKT)",
+                "equacao_diferencial": "RC dVc/dt + Vc = Vin",
+                "passos_laplace": "Aplicando Laplace: RCs*Vc(s) + Vc(s) = Vin(s)",
+                "funcao_transferencia": "G(s) = 1 / (RCs + 1)",
+                "analise_resultado": "Sistema de 1a ordem, estável.",
+                "codigo_diagrama": "import matplotlib.pyplot as plt\nplt.plot([0])\nplt.show()",
+                "grafo_diagrama": grafo_sem_saida,
+            }
+            mock_get_llm.return_value = service
+
+            response = client.post(
+                "/gerar-analise-completa",
+                json={"descricao": "Circuito RC série com saída no capacitor"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["verificacao_grafo_executada"] is True
+        assert data["verificacao_grafo_ok"] is False
+        assert data["mensagem_verificacao_grafo"] is not None
 
 
 # ============================================================================
@@ -263,6 +388,7 @@ class TestEndpointDiagrama:
             diagramas_png_base64=[self._PNG_1X1],
             execucao_ok=True,
             log_execucao="",
+            diagramas_arquivos=["diagrams/diagrama_rota3_ex1.png"],
         )
         response = client.post(
             "/gerar-diagrama-por-ft",
@@ -277,6 +403,132 @@ class TestEndpointDiagrama:
 
     @pytest.mark.api
     @patch("main.execute_diagram_python")
+    def test_gerar_diagrama_por_ft_valida_grafo_coerente(self, mock_exec, client):
+        """LLM emite grafo_diagrama coerente com a FT -> verificacao_grafo_ok=True."""
+        mock_exec.return_value = DiagramExecResult(
+            diagramas_png_base64=[self._PNG_1X1],
+            execucao_ok=True,
+            log_execucao="",
+            diagramas_arquivos=["diagrams/diagrama_rota3_ex1.png"],
+        )
+        grafo = {
+            "nos": [
+                {"id": "u", "tipo": "entrada"},
+                {"id": "g", "tipo": "bloco", "ganho": "1/(s+1)"},
+                {"id": "y", "tipo": "saida"},
+            ],
+            "arestas": [
+                {"origem": "u", "destino": "g", "sinal": "+"},
+                {"origem": "g", "destino": "y", "sinal": "+"},
+            ],
+        }
+        with patch("main.get_llm_service") as mock_get_llm:
+            service = MagicMock()
+            service.generate.return_value = {
+                "codigo_diagrama": "import matplotlib.pyplot as plt\nplt.plot([0])\nplt.show()",
+                "grafo_diagrama": grafo,
+            }
+            mock_get_llm.return_value = service
+
+            response = client.post(
+                "/gerar-diagrama-por-ft",
+                json={"funcao_transferencia": "G(s) = 1/(s+1)"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["verificacao_grafo_executada"] is True
+        assert data["verificacao_grafo_ok"] is True
+        assert data["mensagem_verificacao_grafo"] is None
+
+    @pytest.mark.api
+    @patch("main.execute_diagram_python")
+    def test_gerar_diagrama_por_ft_sem_grafo_nao_executa_verificacao(
+        self, mock_exec, client, mock_llm_diagram_por_ft
+    ):
+        """Resposta antiga do LLM sem 'grafo_diagrama' não deve quebrar nem falsamente reprovar."""
+        mock_exec.return_value = DiagramExecResult(
+            diagramas_png_base64=[self._PNG_1X1],
+            execucao_ok=True,
+            log_execucao="",
+            diagramas_arquivos=["diagrams/diagrama_rota3_ex1.png"],
+        )
+        response = client.post(
+            "/gerar-diagrama-por-ft",
+            json={"funcao_transferencia": "G(s) = 1/(s+1)"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["verificacao_grafo_executada"] is False
+        assert data["verificacao_grafo_ok"] is True
+
+    @pytest.mark.api
+    @patch("main.execute_diagram_python")
+    def test_gerar_diagrama_por_ft_grafo_malformado_nao_quebra_resposta(self, mock_exec, client):
+        """Grafo com estrutura inválida (ex.: sem nó 'saida') sinaliza falha, não derruba a API."""
+        mock_exec.return_value = DiagramExecResult(
+            diagramas_png_base64=[self._PNG_1X1],
+            execucao_ok=True,
+            log_execucao="",
+            diagramas_arquivos=["diagrams/diagrama_rota3_ex1.png"],
+        )
+        grafo_sem_saida = {
+            "nos": [
+                {"id": "u", "tipo": "entrada"},
+                {"id": "g", "tipo": "bloco", "ganho": "1/(s+1)"},
+            ],
+            "arestas": [{"origem": "u", "destino": "g", "sinal": "+"}],
+        }
+        with patch("main.get_llm_service") as mock_get_llm:
+            service = MagicMock()
+            service.generate.return_value = {
+                "codigo_diagrama": "import matplotlib.pyplot as plt\nplt.plot([0])\nplt.show()",
+                "grafo_diagrama": grafo_sem_saida,
+            }
+            mock_get_llm.return_value = service
+
+            response = client.post(
+                "/gerar-diagrama-por-ft",
+                json={"funcao_transferencia": "G(s) = 1/(s+1)"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["verificacao_grafo_executada"] is True
+        assert data["verificacao_grafo_ok"] is False
+        assert data["mensagem_verificacao_grafo"] is not None
+
+    @pytest.mark.api
+    @patch("main.execute_diagram_python")
+    def test_gerar_diagrama_por_ft_retry_quando_ft_nao_parseia(self, mock_exec, client):
+        """FT de entrada sem '=' deve disparar o prompt de correção (antes órfão) e chamar o LLM 2x."""
+        mock_exec.return_value = DiagramExecResult(
+            diagramas_png_base64=[self._PNG_1X1],
+            execucao_ok=True,
+            log_execucao="",
+            diagramas_arquivos=["diagrams/diagrama_rota3_ex1.png"],
+        )
+        with patch("main.get_llm_service") as mock_get_llm:
+            service = MagicMock()
+            service.generate.side_effect = [
+                {"codigo_diagrama": "import matplotlib.pyplot as plt\nplt.plot([0])\nplt.show()"},
+                {"codigo_diagrama": "import matplotlib.pyplot as plt\nplt.plot([1])\nplt.show()"},
+            ]
+            mock_get_llm.return_value = service
+
+            response = client.post(
+                "/gerar-diagrama-por-ft",
+                json={"funcao_transferencia": "isso nao eh uma FT valida"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["verificacao_ft_ok"] is False
+        assert data["nova_tentativa_pos_verificacao"] is True
+        assert service.generate.call_count == 2
+
+    @pytest.mark.api
+    @patch("main.execute_diagram_python")
     def test_gerar_ft_e_diagrama_retorna_imagens(
         self, mock_exec, client, mock_llm_ft_e_diagrama
     ):
@@ -284,6 +536,7 @@ class TestEndpointDiagrama:
             diagramas_png_base64=[self._PNG_1X1],
             execucao_ok=True,
             log_execucao="",
+            diagramas_arquivos=["diagrams/diagrama_rota3_ex1.png"],
         )
         response = client.post(
             "/gerar-ft-e-diagrama",

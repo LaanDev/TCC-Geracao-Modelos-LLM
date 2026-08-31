@@ -33,6 +33,24 @@ Campos extras nessas respostas: `execucao_diagrama_ok` (bool), `log_execucao_dia
 - **`POST /gerar-analise-completa`**: Rota principal. Retorna um objeto JSON detalhado contendo todo o raciocínio matemático, a explicação didática e o código para geração do diagrama.
 - **`POST /validar-minha-resposta`**: Rota de tutor. O aluno envia o problema e a sua própria resposta; a IA avalia se está correto e fornece feedback construtivo.
 
+### Verificação automática, custo e latência
+
+`/gerar-apenas-ft`, `/gerar-diagrama-por-ft` e `/gerar-ft-e-diagrama` rodam um verificador simbólico
+(SymPy + gabaritos canônicos para RC, RLC, massa-mola-amortecedor e suspensão *quarter-car*) depois da
+resposta do LLM. Quando a verificação falha, o backend faz **uma segunda chamada ao LLM** com um prompt
+de correção curto — sempre, mesmo quando a falha é um parsing irrecuperável (FT sem `G(s) = ...`, texto
+malformado), já que o próprio prompt de correção pede esse formato de novo. Isso significa que, no pior
+caso, essas três rotas custam **até 2× as chamadas ao LLM** de uma única requisição — relevante em cotas
+gratuitas do Gemini/Gemma. Para desativar o retry (mantendo só o sinalizador de falha na resposta) ou a
+verificação inteira, use `FT_VERIFICATION_RETRY_LLM=false` / `FT_VERIFICATION_ENABLED=false` no `.env`.
+`/gerar-analise-completa` também roda a verificação, mas **sem retry** (uma correção precisaria refazer a
+análise completa — lei aplicada, EDO, Laplace etc. — custando uma segunda chamada tão cara quanto a primeira).
+
+As três rotas que geram diagrama (`/gerar-diagrama-por-ft`, `/gerar-ft-e-diagrama`,
+`/gerar-analise-completa` quando há `codigo_diagrama`) também executam o código do LLM em subprocesso
+isolado, com timeout de `DIAGRAM_EXECUTION_TIMEOUT` (padrão 45s). Some isso ao tempo de uma possível
+segunda chamada ao LLM: o pior caso realista para essas rotas é *2× latência do LLM + até 45s de subprocesso*.
+
 ## 3. Tecnologias Utilizadas
 
 O projeto foi construído sobre uma *stack* moderna de desenvolvimento em Python:
@@ -40,7 +58,7 @@ O projeto foi construído sobre uma *stack* moderna de desenvolvimento em Python
 - **Linguagem:** Python 3.x
 - **API Framework:** `FastAPI` (para criação de rotas assíncronas e documentação automática).
 - **Servidor:** `Uvicorn` (servidor ASGI de alta performance).
-- **IA Generativa:** `google-generativeai` (Integração com modelo Gemini 1.5/Gemma).
+- **IA Generativa:** `google-genai` (SDK unificado; integração com modelos Gemini/Gemma).
 - **Engenharia:** `control` (Biblioteca Python de Sistemas de Controle).
 - **Frontend:** React (Vite) – interface para consumir a API.
 - **Ambiente:** Gerenciado via `venv` (backend) e `npm` (frontend).

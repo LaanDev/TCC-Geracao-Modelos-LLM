@@ -8,7 +8,7 @@ Autor: Laan Carlos Nunes Mendes de Barros
 import logging
 from contextlib import asynccontextmanager
 from functools import wraps
-from typing import Any, Callable, Type
+from typing import Any, Callable
 
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,11 +33,20 @@ from prompts import (
     formatar_prompt_validacao,
     formatar_prompt_diagrama_por_ft,
     formatar_prompt_ft_e_diagrama,
+    formatar_prompt_correcao_apenas_ft,
+    formatar_prompt_correcao_ft_e_diagrama,
+    formatar_prompt_correcao_diagrama_por_ft,
 )
-from pydantic import BaseModel
-
 from llm_service import get_llm_service, LLMError, LLMParseError
 from diagram_executor import DiagramExecResult, execute_diagram_python
+from ft_verification import (
+    FTVerificationOutcome,
+    merge_outcomes_ft_e_diagrama,
+    mensagem_verificacao_consolidada,
+    verify_diagram_physical_layout,
+    verify_transfer_function,
+)
+from graph_validation import DiagramGraph, verify_diagram_graph
 
 # -----------------------------------------------------------------------------
 # Logging
@@ -50,7 +59,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("api")
 
-APP_VERSION = "6.1.0"
+APP_VERSION = "6.2.0"
 MAX_DESCRIPTION_LOG_LENGTH = 100
 
 
@@ -176,22 +185,108 @@ def _attach_diagram_execution(payload: dict[str, Any], exe: DiagramExecResult) -
     """Acrescenta campos de execução automática do código matplotlib ao payload."""
     payload["diagramas_png_base64"] = exe.diagramas_png_base64
     payload["execucao_diagrama_ok"] = exe.execucao_ok
+    payload["diagramas_arquivos"] = exe.diagramas_arquivos
     if not exe.execucao_ok or settings.debug:
         payload["log_execucao_diagrama"] = exe.log_execucao
     else:
         payload["log_execucao_diagrama"] = None
 
 
-def _generate_diagram_then_execute(
-    prompt: str, response_schema: Type[BaseModel], handler_name: str
-) -> dict[str, Any]:
-    """Chama LLM e executa código de diagrama no subprocesso quando habilitado."""
-    llm = get_llm_service()
-    payload = llm.generate(prompt, response_schema)
-    exe = execute_diagram_python(payload.get("codigo_diagrama") or "")
+_DIAGRAM_SAVE_PREFIX: dict[str, str] = {
+    "gerar-diagrama-por-ft": "diagrama_rota3",
+    "gerar-ft-e-diagrama": "diagrama_rota4",
+    "gerar-analise-completa": "diagrama_rota5",
+}
+
+
+def _attach_verification_standard(
+    payload: dict[str, Any],
+    outcome: FTVerificationOutcome,
+    *,
+    executed: bool,
+    retried: bool,
+) -> None:
+    """Campos comuns de verificação (FT / FT da requisição)."""
+    payload["verificacao_executada"] = executed
+    payload["nova_tentativa_pos_verificacao"] = retried
+    if not executed:
+        payload["verificacao_ft_ok"] = True
+        payload["mensagem_verificacao"] = None
+        return
+    payload["verificacao_ft_ok"] = outcome.ok
+    msg = mensagem_verificacao_consolidada(outcome)
+    if msg is None and settings.debug:
+        payload["mensagem_verificacao"] = "Verificação executada: nenhum problema detectado."
+    else:
+        payload["mensagem_verificacao"] = msg
+
+
+def _attach_verification_ft_diagram(
+    payload: dict[str, Any],
+    outcome: FTVerificationOutcome,
+    *,
+    executed: bool,
+    retried: bool,
+) -> None:
+    """Verificação no fluxo descrição → FT + código (inclui layout físico quando aplicável)."""
+    _attach_verification_standard(payload, outcome, executed=executed, retried=retried)
+    if not executed:
+        payload["verificacao_layout_fisico_ok"] = None
+    else:
+        payload["verificacao_layout_fisico_ok"] = outcome.layout_diagrama_fisico_ok
+
+
+def _attach_graph_verification(payload: dict[str, Any], funcao_transferencia: str) -> None:
+    """
+    Valida, quando presente, o grafo do diagrama por redução algébrica (Fórmula de Ganho
+    de Mason) contra `funcao_transferencia`. Ausência ou malformação do grafo nunca bloqueia
+    a resposta — só fica registrada como verificacao_grafo_executada=False (sem grafo) ou
+    verificacao_grafo_ok=False (grafo presente, mas inválido/incoerente).
+    """
+    grafo_data = payload.get("grafo_diagrama")
+    if not settings.graph_validation_enabled or not grafo_data:
+        payload["verificacao_grafo_executada"] = False
+        payload["verificacao_grafo_ok"] = True
+        payload["mensagem_verificacao_grafo"] = None
+        payload["ft_derivada_grafo"] = None
+        return
+
+    try:
+        graph = DiagramGraph(**grafo_data)
+        out = verify_diagram_graph(graph, funcao_transferencia)
+    except Exception as exc:  # noqa: BLE001 — domínio: estrutura arbitrária vinda do LLM
+        payload["verificacao_grafo_executada"] = True
+        payload["verificacao_grafo_ok"] = False
+        payload["mensagem_verificacao_grafo"] = f"grafo: estrutura inválida — {exc}"
+        payload["ft_derivada_grafo"] = None
+        return
+
+    payload["verificacao_grafo_executada"] = True
+    payload["verificacao_grafo_ok"] = out.ok
+    payload["ft_derivada_grafo"] = out.ft_derivada_grafo
+    payload["mensagem_verificacao_grafo"] = None if out.ok else "; ".join(out.problemas)
+
+
+def _merged_verify_ft_e_diagrama(descricao: str, payload: dict[str, Any]) -> FTVerificationOutcome:
+    ft_out = verify_transfer_function(descricao, payload["funcao_transferencia"])
+    layout_out = verify_diagram_physical_layout(descricao, payload.get("codigo_diagrama") or "")
+    return merge_outcomes_ft_e_diagrama(ft_out, layout_out)
+
+
+def _execute_diagram_on_payload(payload: dict[str, Any], handler_name: str) -> None:
+    prefix = _DIAGRAM_SAVE_PREFIX.get(handler_name, "diagrama")
+    exe = execute_diagram_python(
+        payload.get("codigo_diagrama") or "",
+        save_prefix=prefix,
+    )
     _attach_diagram_execution(payload, exe)
-    logger.info("%s exec diagram: ok=%s imagens=%d", handler_name, exe.execucao_ok, len(exe.diagramas_png_base64))
-    return payload
+    logger.info(
+        "%s exec diagram: ok=%s imagens=%d salvos=%s",
+        handler_name,
+        exe.execucao_ok,
+        len(exe.diagramas_png_base64),
+        exe.diagramas_arquivos,
+    )
 
 
 @app.post(
@@ -213,7 +308,29 @@ def api_gerar_apenas_ft(request: ProblemaRequest):
     logger.info("Requisição /gerar-apenas-ft: %s", _truncate_for_log(request.descricao))
     llm = get_llm_service()
     prompt = formatar_prompt_ft(request.descricao)
-    return llm.generate(prompt, FuncaoTransferenciaResponse)
+    payload = llm.generate(prompt, FuncaoTransferenciaResponse)
+
+    if settings.ft_verification_enabled:
+        out = verify_transfer_function(request.descricao, payload["funcao_transferencia"])
+        retried = False
+        if not out.ok and settings.ft_verification_retry_llm:
+            corr = formatar_prompt_correcao_apenas_ft(
+                request.descricao,
+                out.problemas,
+                payload["funcao_transferencia"],
+            )
+            payload = llm.generate(corr, FuncaoTransferenciaResponse)
+            out = verify_transfer_function(request.descricao, payload["funcao_transferencia"])
+            retried = True
+        _attach_verification_standard(payload, out, executed=True, retried=retried)
+    else:
+        _attach_verification_standard(
+            payload,
+            FTVerificationOutcome(ok=True),
+            executed=False,
+            retried=False,
+        )
+    return payload
 
 
 @app.post(
@@ -235,8 +352,33 @@ além de `control` para simulação quando a FT permitir valores numéricos.
 def api_gerar_diagrama_por_ft(request: FuncaoTransferenciaRequest):
     """Gera código de diagrama de blocos usando uma FT já informada."""
     logger.info("Requisição /gerar-diagrama-por-ft")
+    llm = get_llm_service()
     prompt = formatar_prompt_diagrama_por_ft(request.funcao_transferencia)
-    return _generate_diagram_then_execute(prompt, DiagramaBlocosResponse, "gerar-diagrama-por-ft")
+    payload = llm.generate(prompt, DiagramaBlocosResponse)
+
+    if settings.ft_verification_enabled:
+        out = verify_transfer_function("", request.funcao_transferencia)
+        retried = False
+        if not out.ok and settings.ft_verification_retry_llm:
+            # A FT de entrada não parseia; não dá para "corrigi-la" (é do usuário), mas
+            # pedimos um código de diagrama mais defensivo/explícito diante da FT malformada.
+            corr = formatar_prompt_correcao_diagrama_por_ft(
+                out.problemas,
+                request.funcao_transferencia,
+            )
+            payload = llm.generate(corr, DiagramaBlocosResponse)
+            retried = True
+        _attach_verification_standard(payload, out, executed=True, retried=retried)
+    else:
+        _attach_verification_standard(
+            payload,
+            FTVerificationOutcome(ok=True),
+            executed=False,
+            retried=False,
+        )
+    _attach_graph_verification(payload, request.funcao_transferencia)
+    _execute_diagram_on_payload(payload, "gerar-diagrama-por-ft")
+    return payload
 
 
 @app.post(
@@ -257,8 +399,34 @@ fechada quando o problema for explicitamente malha aberta), com matplotlib e `co
 def api_gerar_ft_e_diagrama(request: ProblemaRequest):
     """Gera FT e código de diagrama de blocos em uma única resposta."""
     logger.info("Requisição /gerar-ft-e-diagrama: %s", _truncate_for_log(request.descricao))
+    llm = get_llm_service()
     prompt = formatar_prompt_ft_e_diagrama(request.descricao)
-    return _generate_diagram_then_execute(prompt, FuncaoTransferenciaEDiagramaResponse, "gerar-ft-e-diagrama")
+    payload = llm.generate(prompt, FuncaoTransferenciaEDiagramaResponse)
+
+    if settings.ft_verification_enabled:
+        out = _merged_verify_ft_e_diagrama(request.descricao, payload)
+        retried = False
+        if not out.ok and settings.ft_verification_retry_llm:
+            corr = formatar_prompt_correcao_ft_e_diagrama(
+                request.descricao,
+                out.problemas,
+                payload["funcao_transferencia"],
+                payload.get("codigo_diagrama", ""),
+            )
+            payload = llm.generate(corr, FuncaoTransferenciaEDiagramaResponse)
+            out = _merged_verify_ft_e_diagrama(request.descricao, payload)
+            retried = True
+        _attach_verification_ft_diagram(payload, out, executed=True, retried=retried)
+    else:
+        _attach_verification_ft_diagram(
+            payload,
+            FTVerificationOutcome(ok=True),
+            executed=False,
+            retried=False,
+        )
+    _attach_graph_verification(payload, payload["funcao_transferencia"])
+    _execute_diagram_on_payload(payload, "gerar-ft-e-diagrama")
+    return payload
 
 
 @app.post(
@@ -280,7 +448,25 @@ def api_gerar_analise_completa(request: ProblemaRequest):
     logger.info("Requisição /gerar-analise-completa: %s", _truncate_for_log(request.descricao))
     llm = get_llm_service()
     prompt = formatar_prompt_analise_completa(request.descricao)
-    return llm.generate(prompt, AnaliseCompletaResponse)
+    payload = llm.generate(prompt, AnaliseCompletaResponse)
+
+    if settings.ft_verification_enabled:
+        # Sem retry aqui: uma correção precisaria refazer a análise completa (lei aplicada,
+        # EDO, Laplace, etc.) inteira, custando uma segunda chamada tão cara quanto a primeira.
+        out = verify_transfer_function(request.descricao, payload["funcao_transferencia"])
+        _attach_verification_standard(payload, out, executed=True, retried=False)
+    else:
+        _attach_verification_standard(
+            payload,
+            FTVerificationOutcome(ok=True),
+            executed=False,
+            retried=False,
+        )
+
+    _attach_graph_verification(payload, payload["funcao_transferencia"])
+    if payload.get("codigo_diagrama"):
+        _execute_diagram_on_payload(payload, "gerar-analise-completa")
+    return payload
 
 
 @app.post(

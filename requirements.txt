@@ -12,7 +12,8 @@ pydantic>=2.5.0
 pydantic-settings>=2.1.0
 
 # --- IA Generativa ---
-google-generativeai>=0.3.0
+# google-generativeai foi descontinuado (EOL 2025-11-30); usamos o SDK unificado google-genai
+google-genai>=1.0.0
 
 # --- Variáveis de Ambiente ---
 python-dotenv>=1.0.0
@@ -21,6 +22,7 @@ python-dotenv>=1.0.0
 control>=0.9.4
 numpy>=1.24.0
 matplotlib>=3.7.0
+sympy>=1.12
 
 # --- Testes ---
 pytest>=7.4.0

@@ -6,6 +6,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from graph_validation import DiagramGraph
+
 
 # -----------------------------------------------------------------------------
 # Request
@@ -92,7 +94,23 @@ class FuncaoTransferenciaResponse(BaseModel):
 
     funcao_transferencia: str = Field(
         ...,
-        description="Função de transferência no formato G(s) = numerador / denominador"
+        description="Função de transferência no formato G(s) = numerador / denominador",
+    )
+    verificacao_executada: bool = Field(
+        False,
+        description="True se o verificador simbólico (SymPy + gabaritos canônicos) foi executado",
+    )
+    verificacao_ft_ok: bool = Field(
+        True,
+        description="False se falhou parsing ou inconsistência contra gabarito canônico quando aplicável",
+    )
+    mensagem_verificacao: Optional[str] = Field(
+        None,
+        description="Detalhes quando a verificação falha ou modo debug",
+    )
+    nova_tentativa_pos_verificacao: bool = Field(
+        False,
+        description="True se houve segunda chamada ao LLM com prompt de correção curta",
     )
 
 
@@ -123,6 +141,67 @@ class AnaliseCompletaResponse(BaseModel):
         None,
         description="Código Python para gerar o diagrama de blocos usando python-control"
     )
+    verificacao_executada: bool = Field(
+        False,
+        description="True se o verificador simbólico (SymPy + gabaritos canônicos) foi executado",
+    )
+    verificacao_ft_ok: bool = Field(
+        True,
+        description="False se falhou parsing ou inconsistência contra gabarito canônico quando aplicável",
+    )
+    mensagem_verificacao: Optional[str] = Field(
+        None,
+        description="Detalhes quando a verificação falha ou modo debug",
+    )
+    nova_tentativa_pos_verificacao: bool = Field(
+        False,
+        description=(
+            "Sempre False neste endpoint: a análise completa não tem prompt de correção "
+            "dedicado (custaria uma segunda chamada completa ao LLM), então falhas ficam "
+            "só sinalizadas em verificacao_ft_ok/mensagem_verificacao"
+        ),
+    )
+    grafo_diagrama: Optional[DiagramGraph] = Field(
+        None,
+        description=(
+            "Estrutura do diagrama como grafo (blocos com ganho, somadores, arestas com sinal), "
+            "usada para validar por redução algébrica (Fórmula de Ganho de Mason) que o diagrama "
+            "realmente reduz à FT. Opcional: quando ausente ou malformada, a validação por grafo "
+            "simplesmente não roda (verificacao_grafo_executada=False)."
+        ),
+    )
+    verificacao_grafo_executada: bool = Field(
+        False,
+        description="True se um grafo válido foi recebido e a redução de Mason foi executada",
+    )
+    verificacao_grafo_ok: bool = Field(
+        True,
+        description="False se o grafo não reduz à FT, ou se o grafo é malformado",
+    )
+    mensagem_verificacao_grafo: Optional[str] = Field(
+        None,
+        description="Detalhes quando a validação por grafo falha ou não pôde ser executada",
+    )
+    ft_derivada_grafo: Optional[str] = Field(
+        None,
+        description="FT obtida reduzindo o grafo (Mason), para depuração/transparência",
+    )
+    diagramas_png_base64: List[str] = Field(
+        default_factory=list,
+        description="PNG em Base64 quando codigo_diagrama é executado automaticamente",
+    )
+    execucao_diagrama_ok: bool = Field(
+        False,
+        description="True se a execução automática do codigo_diagrama produziu PNG",
+    )
+    log_execucao_diagrama: Optional[str] = Field(
+        None,
+        description="Log da execução do diagrama (quando falha ou DEBUG)",
+    )
+    diagramas_arquivos: List[str] = Field(
+        default_factory=list,
+        description="Caminhos relativos dos PNG gravados em diagrams/",
+    )
 
 
 class ValidacaoResponse(BaseModel):
@@ -152,6 +231,44 @@ class DiagramaBlocosResponse(BaseModel):
             "realimentação) + uso de control para FT numérica e gráfico de apoio quando possível"
         ),
     )
+    verificacao_executada: bool = Field(
+        False,
+        description="Verificação do texto da FT de entrada (parse racional em s)",
+    )
+    verificacao_ft_ok: bool = Field(
+        True,
+        description="False se a FT textual da requisição não pôde ser interpretada simbolicamente",
+    )
+    mensagem_verificacao: Optional[str] = Field(None, description="Detalhes do verificador")
+    nova_tentativa_pos_verificacao: bool = Field(
+        False,
+        description="Reservado; usualmente False neste endpoint",
+    )
+    grafo_diagrama: Optional[DiagramGraph] = Field(
+        None,
+        description=(
+            "Estrutura do diagrama como grafo (blocos com ganho, somadores, arestas com sinal), "
+            "usada para validar por redução algébrica (Fórmula de Ganho de Mason) que o diagrama "
+            "realmente reduz à FT informada. Opcional: quando ausente ou malformada, a validação "
+            "por grafo simplesmente não roda (verificacao_grafo_executada=False)."
+        ),
+    )
+    verificacao_grafo_executada: bool = Field(
+        False,
+        description="True se um grafo válido foi recebido e a redução de Mason foi executada",
+    )
+    verificacao_grafo_ok: bool = Field(
+        True,
+        description="False se o grafo não reduz à FT informada, ou se o grafo é malformado",
+    )
+    mensagem_verificacao_grafo: Optional[str] = Field(
+        None,
+        description="Detalhes quando a validação por grafo falha ou não pôde ser executada",
+    )
+    ft_derivada_grafo: Optional[str] = Field(
+        None,
+        description="FT obtida reduzindo o grafo (Mason), para depuração/transparência",
+    )
     diagramas_png_base64: List[str] = Field(
         default_factory=list,
         description=(
@@ -166,6 +283,10 @@ class DiagramaBlocosResponse(BaseModel):
     log_execucao_diagrama: Optional[str] = Field(
         None,
         description="Saída do subprocesso (stdout/stderr, truncada) para depuração",
+    )
+    diagramas_arquivos: List[str] = Field(
+        default_factory=list,
+        description="Caminhos relativos dos PNG gravados em disco (ex.: diagrams/diagrama_rota3_ex1.png)",
     )
 
 
@@ -182,6 +303,45 @@ class FuncaoTransferenciaEDiagramaResponse(BaseModel):
             "Código Python: diagrama de blocos alinhado à descrição (matplotlib) + control/numpy quando houver valores"
         ),
     )
+    verificacao_executada: bool = Field(
+        False,
+        description="True se rodou SymPy/canônicos e heurística de layout físico quando aplicável",
+    )
+    verificacao_ft_ok: bool = Field(
+        True,
+        description="False se FT ou código falhou parte verificável do pipeline",
+    )
+    verificacao_layout_fisico_ok: Optional[bool] = Field(
+        None,
+        description="None se N/A; False se esperava esquema mecânico 1×2 e não detectado no código",
+    )
+    mensagem_verificacao: Optional[str] = Field(None)
+    nova_tentativa_pos_verificacao: bool = Field(False)
+    grafo_diagrama: Optional[DiagramGraph] = Field(
+        None,
+        description=(
+            "Estrutura do diagrama como grafo (blocos com ganho, somadores, arestas com sinal), "
+            "usada para validar por redução algébrica (Fórmula de Ganho de Mason) que o diagrama "
+            "realmente reduz à FT declarada. Opcional: quando ausente ou malformada, a validação "
+            "por grafo simplesmente não roda (verificacao_grafo_executada=False)."
+        ),
+    )
+    verificacao_grafo_executada: bool = Field(
+        False,
+        description="True se um grafo válido foi recebido e a redução de Mason foi executada",
+    )
+    verificacao_grafo_ok: bool = Field(
+        True,
+        description="False se o grafo não reduz à FT declarada, ou se o grafo é malformado",
+    )
+    mensagem_verificacao_grafo: Optional[str] = Field(
+        None,
+        description="Detalhes quando a validação por grafo falha ou não pôde ser executada",
+    )
+    ft_derivada_grafo: Optional[str] = Field(
+        None,
+        description="FT obtida reduzindo o grafo (Mason), para depuração/transparência",
+    )
     diagramas_png_base64: List[str] = Field(
         default_factory=list,
         description="PNG em Base64 da execução automática (data:image/png;base64,... no cliente)",
@@ -193,6 +353,10 @@ class FuncaoTransferenciaEDiagramaResponse(BaseModel):
     log_execucao_diagrama: Optional[str] = Field(
         None,
         description="Log truncado do subprocesso",
+    )
+    diagramas_arquivos: List[str] = Field(
+        default_factory=list,
+        description="Caminhos relativos dos PNG gravados em diagrams/",
     )
 
 

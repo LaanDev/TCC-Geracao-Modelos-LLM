@@ -26,6 +26,18 @@ class Settings(BaseSettings):
     # Execução automática do código gerado para diagramas (subprocesso isolado)
     execute_diagram_code: bool = True
     diagram_execution_timeout: int = 45
+    # Persistência dos PNG gerados em disco (pasta relativa à raiz do projeto)
+    diagram_save_to_disk: bool = True
+    diagram_output_dir: str = "diagrams"
+
+    # Verificação pós-LLM (SymPy + gabaritos canônicos) e retry curtíssimo
+    ft_verification_enabled: bool = True
+    ft_verification_retry_llm: bool = True
+
+    # Validação estrutural do diagrama por grafo (Fórmula de Ganho de Mason).
+    # Roda só quando o LLM emite "grafo_diagrama"; se ausente/malformado, é ignorada
+    # silenciosamente (não bloqueia a resposta), então é seguro deixar ligada por padrão.
+    graph_validation_enabled: bool = True
 
     host: str = "127.0.0.1"
     port: int = 8000

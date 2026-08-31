@@ -184,7 +184,19 @@ Siga EXATAMENTE estas etapas em ordem:
   
   "analise_resultado": "**Características do Sistema:**\\n\\n• **Ordem:** 1ª ordem (grau do denominador = 1)\\n• **Tipo:** Sistema com um polo real\\n• **Polo:** s = -1/RC = -1/τ (localizado no SPE, sistema ESTÁVEL)\\n• **Zeros:** Nenhum (numerador constante)\\n• **Ganho DC:** G(0) = 1 (em regime permanente, Vc = Vin)\\n• **Constante de tempo:** τ = RC segundos\\n• **Tempo de acomodação (2%):** ts ≈ 4τ = 4RC\\n• **Comportamento:** Filtro passa-baixas de 1ª ordem\\n\\n**Interpretação física:** O capacitor se carrega exponencialmente até atingir a tensão de entrada, com velocidade determinada por τ = RC.",
   
-  "codigo_diagrama": "import numpy as np\\nimport matplotlib.pyplot as plt\\nimport control as ctrl\\n\\n# === PARÂMETROS DO SISTEMA ===\\nR = 1000      # Resistência em Ohms (1 kΩ)\\nC = 1e-6      # Capacitância em Farads (1 µF)\\ntau = R * C   # Constante de tempo\\n\\nprint(f'Constante de tempo τ = {{tau*1000:.2f}} ms')\\n\\n# === FUNÇÃO DE TRANSFERÊNCIA ===\\n# G(s) = 1 / (RCs + 1) = 1 / (τs + 1)\\nnum = [1]           # Numerador: 1\\nden = [tau, 1]      # Denominador: τs + 1\\nG = ctrl.TransferFunction(num, den)\\n\\nprint('\\\\nFunção de Transferência:')\\nprint(G)\\n\\n# === ANÁLISE DE POLOS E ZEROS ===\\npolos = ctrl.poles(G)\\nzeros = ctrl.zeros(G)\\nprint(f'\\\\nPolos: {{polos}}')\\nprint(f'Zeros: {{zeros}}')\\nprint(f'Sistema estável: {{all(p.real < 0 for p in polos)}}')\\n\\n# === RESPOSTA AO DEGRAU ===\\nt = np.linspace(0, 5*tau, 1000)\\nt_out, y_out = ctrl.step_response(G, t)\\n\\nplt.figure(figsize=(10, 6))\\nplt.plot(t_out*1000, y_out, 'b-', linewidth=2, label='Resposta ao Degrau')\\nplt.axhline(y=0.632, color='r', linestyle='--', alpha=0.7, label=f'63.2% (t = τ = {{tau*1000:.2f}} ms)')\\nplt.axhline(y=0.98, color='g', linestyle='--', alpha=0.7, label=f'98% (t = 4τ = {{4*tau*1000:.2f}} ms)')\\nplt.axvline(x=tau*1000, color='r', linestyle=':', alpha=0.5)\\nplt.axvline(x=4*tau*1000, color='g', linestyle=':', alpha=0.5)\\nplt.xlabel('Tempo (ms)')\\nplt.ylabel('Vc(t) / Vin')\\nplt.title('Resposta ao Degrau - Circuito RC (1ª Ordem)')\\nplt.legend()\\nplt.grid(True, alpha=0.3)\\nplt.xlim([0, 5*tau*1000])\\nplt.ylim([0, 1.1])\\nplt.show()"
+  "codigo_diagrama": "import numpy as np\\nimport matplotlib.pyplot as plt\\nimport control as ctrl\\n\\n# === PARÂMETROS DO SISTEMA ===\\nR = 1000      # Resistência em Ohms (1 kΩ)\\nC = 1e-6      # Capacitância em Farads (1 µF)\\ntau = R * C   # Constante de tempo\\n\\nprint(f'Constante de tempo τ = {{tau*1000:.2f}} ms')\\n\\n# === FUNÇÃO DE TRANSFERÊNCIA ===\\n# G(s) = 1 / (RCs + 1) = 1 / (τs + 1)\\nnum = [1]           # Numerador: 1\\nden = [tau, 1]      # Denominador: τs + 1\\nG = ctrl.TransferFunction(num, den)\\n\\nprint('\\\\nFunção de Transferência:')\\nprint(G)\\n\\n# === ANÁLISE DE POLOS E ZEROS ===\\npolos = ctrl.poles(G)\\nzeros = ctrl.zeros(G)\\nprint(f'\\\\nPolos: {{polos}}')\\nprint(f'Zeros: {{zeros}}')\\nprint(f'Sistema estável: {{all(p.real < 0 for p in polos)}}')\\n\\n# === RESPOSTA AO DEGRAU ===\\nt = np.linspace(0, 5*tau, 1000)\\nt_out, y_out = ctrl.step_response(G, t)\\n\\nplt.figure(figsize=(10, 6))\\nplt.plot(t_out*1000, y_out, 'b-', linewidth=2, label='Resposta ao Degrau')\\nplt.axhline(y=0.632, color='r', linestyle='--', alpha=0.7, label=f'63.2% (t = τ = {{tau*1000:.2f}} ms)')\\nplt.axhline(y=0.98, color='g', linestyle='--', alpha=0.7, label=f'98% (t = 4τ = {{4*tau*1000:.2f}} ms)')\\nplt.axvline(x=tau*1000, color='r', linestyle=':', alpha=0.5)\\nplt.axvline(x=4*tau*1000, color='g', linestyle=':', alpha=0.5)\\nplt.xlabel('Tempo (ms)')\\nplt.ylabel('Vc(t) / Vin')\\nplt.title('Resposta ao Degrau - Circuito RC (1ª Ordem)')\\nplt.legend()\\nplt.grid(True, alpha=0.3)\\nplt.xlim([0, 5*tau*1000])\\nplt.ylim([0, 1.1])\\nplt.show()",
+
+  "grafo_diagrama": {{
+    "nos": [
+      {{"id": "u", "tipo": "entrada"}},
+      {{"id": "g", "tipo": "bloco", "ganho": "1/(R*C*s+1)"}},
+      {{"id": "y", "tipo": "saida"}}
+    ],
+    "arestas": [
+      {{"origem": "u", "destino": "g", "sinal": "+"}},
+      {{"origem": "g", "destino": "y", "sinal": "+"}}
+    ]
+  }}
 }}
 ```
 
@@ -199,13 +211,19 @@ Siga EXATAMENTE estas etapas em ordem:
 
 ## Formato de Resposta OBRIGATÓRIO
 
-Responda com um objeto JSON válido contendo EXATAMENTE estas 6 chaves:
+Responda com um objeto JSON válido contendo EXATAMENTE estas 7 chaves:
 1. "lei_aplicada" - Lei física e sua aplicação ao sistema
 2. "equacao_diferencial" - Derivação da EDO passo a passo
 3. "passos_laplace" - Aplicação detalhada da Transformada de Laplace
 4. "funcao_transferencia" - G(s) final com forma padrão identificada
 5. "analise_resultado" - Análise completa (ordem, polos, zeros, estabilidade, ganho DC)
 6. "codigo_diagrama" - Código Python completo e funcional
+7. "grafo_diagrama" - MESMA topologia de "codigo_diagrama" como grafo, para verificação
+   automática por redução algébrica (Fórmula de Ganho de Mason): {{"nos": [{{"id","tipo":
+   "entrada"|"saida"|"somador"|"bloco", "ganho" (só em blocos, expressão em s com os
+   parâmetros físicos do enunciado)}}], "arestas": [{{"origem","destino","sinal":"+"|"-"}}]}}.
+   Exatamente 1 nó "entrada" e 1 "saida"; use "sinal":"-" só em entrada de realimentação
+   de somador.
 
 Use \\n para quebras de linha dentro das strings.
 Não inclua texto fora do JSON."""
@@ -336,6 +354,9 @@ Cascata G1, G2 só se inequívoco na expressão.
 código completo; use \\n para novas linhas no JSON.
 Finalize com um `plt.show()` OU `plt.savefig("diagrama_blocos.png", dpi=150, bbox_inches="tight")` + `print`.
 Use `matplotlib.patches`: `FancyBboxPatch`, `FancyArrowPatch`, `Circle`.
+**Setas (obrigatório):** `FancyArrowPatch(..., arrowstyle='-|>', mutation_scale=14, lw=1.5,
+color='black')`. NÃO use `mutation_scale` acima de ~18 nem `lw` acima de ~2 — pontas de seta
+maiores que isso cobrem os rótulos de texto dos blocos.
 O servidor **executa** o código automaticamente em ambiente **sem tela** (Agg): `plt.show()`
 vira captura de PNG; arquivos `.png` escritos no diretório atual do script também são coletados.
 
@@ -347,13 +368,88 @@ vira captura de PNG; arquivos `.png` escritos no diretório atual do script tamb
   ou escapes duplicados antes de comandos iniciados por barra se usar aspas duplas.
 - `plt.tight_layout()` pode falhar com `aspect='equal'` e texto mathtext; prefira omitir ou
   `try: plt.tight_layout(); except Exception: pass`.
+- **Strings Python:** nunca quebre um literal entre aspas simples ou duplas em várias linhas
+  físicas do `.py` (isso gera SyntaxError). Textos longos em `ax.text(...)` ficam em **uma linha**
+  ou use `\\n` dentro da string; comentários didáticos vão em `# comentário`, não dentro de strings multilinha.
+
+## Grafo estruturado do diagrama (obrigatório)
+Além do código, descreva como um grafo em "grafo_diagrama" APENAS o caminho direto
+U -> [G(s)] -> Y (o primeiro subplot/figura), para permitir verificação automática por
+redução algébrica (Fórmula de Ganho de Mason):
+- "nos": lista de {{"id": "...", "tipo": "entrada"|"saida"|"somador"|"bloco", "ganho": "..."}}.
+  "ganho" só se aplica a tipo="bloco" e deve ser uma expressão em s usando os MESMOS símbolos
+  da função de transferência (ex.: "1/(R*C*s+1)"). Nós "entrada"/"saida"/"somador" não têm ganho.
+- "arestas": lista de {{"origem": "id", "destino": "id", "sinal": "+"|"-"}}. "sinal" só importa
+  nas entradas de um somador (realimentação negativa = "-"); nas demais conexões use "+".
+- Exatamente 1 nó "entrada" e 1 nó "saida". O grafo, reduzido pela Fórmula de Mason, deve
+  produzir uma expressão equivalente à função de transferência fornecida.
+- **IMPORTANTE — leia com atenção:** o código Python pode (e deve) desenhar DOIS subplots/figuras
+  (caminho direto + malha ilustrativa H(s)=1), mas "grafo_diagrama" descreve **só o primeiro**.
+  Regra estrutural simples: se a função de transferência fornecida **não tem** um somador real
+  nela (não é uma razão do tipo G_dir/(1+G_dir) explícita no enunciado), então "grafo_diagrama"
+  **não deve conter nenhum nó do tipo "somador"** — apenas entrada -> bloco(s) -> saída em
+  cascata direta. NÃO junte os nós/arestas dos dois subplots em uma única lista — isso duplica
+  nós "entrada"/"saida" e quebra a verificação. A malha H(s)=1 é só para a figura; ela não entra
+  no "grafo_diagrama" de forma alguma.
+- **Denominador polinomial (2ª ordem ou mais) NÃO é realimentação:** se a FT fornecida é do tipo
+  `1/(M*s^2 + B*s + K)` ou qualquer razão de polinômios em `s` com coeficientes (R, L, C, M, B,
+  K, ...), isso é **um único bloco em malha aberta**, mesmo que o denominador tenha vários termos.
+  Não interprete os termos do denominador como ramos de realimentação nem crie um "somador" para
+  "montá-los" — o "grafo_diagrama" correto tem só 3 nós: entrada, um bloco com
+  `"ganho": "1/(M*s**2+B*s+K)"` (a fração inteira, tal como fornecida), e saída.
+  Antes de responder, se o seu "grafo_diagrama" tiver um nó "somador", pergunte-se: "o enunciado
+  ou a FT fornecida mostra explicitamente uma subtração/realimentação?" Se não, remova o somador.
+
+### Exemplo (sem realimentação, caminho direto U -> G(s) -> Y)
+FT: "G(s) = 1 / (RCs + 1)"
+```json
+{{
+  "codigo_diagrama": "...",
+  "grafo_diagrama": {{
+    "nos": [
+      {{"id": "u", "tipo": "entrada"}},
+      {{"id": "g", "tipo": "bloco", "ganho": "1/(R*C*s+1)"}},
+      {{"id": "y", "tipo": "saida"}}
+    ],
+    "arestas": [
+      {{"origem": "u", "destino": "g", "sinal": "+"}},
+      {{"origem": "g", "destino": "y", "sinal": "+"}}
+    ]
+  }}
+}}
+```
+
+### ❌ NÃO faça isto (grafo da malha ilustrativa H(s)=1 — errado, não use como modelo)
+O código Python pode desenhar a malha unitária didática no segundo subplot, mas o
+"grafo_diagrama" NUNCA deve ser assim — reduzir isto por Mason dá `G_dir/(1+G_dir)`,
+que não bate com a função de transferência fornecida:
+```json
+{{
+  "grafo_diagrama": {{
+    "nos": [
+      {{"id": "r", "tipo": "entrada"}},
+      {{"id": "soma", "tipo": "somador"}},
+      {{"id": "g", "tipo": "bloco", "ganho": "G_dir"}},
+      {{"id": "y", "tipo": "saida"}}
+    ],
+    "arestas": [
+      {{"origem": "r", "destino": "soma", "sinal": "+"}},
+      {{"origem": "soma", "destino": "g", "sinal": "+"}},
+      {{"origem": "g", "destino": "y", "sinal": "+"}},
+      {{"origem": "y", "destino": "soma", "sinal": "-"}}
+    ]
+  }}
+}}
+```
+Use sempre o padrão do exemplo anterior (caminho direto, sem somador) para "grafo_diagrama".
 
 ## Função de Transferência
 "{funcao_transferencia}"
 
 ## Formato de Resposta OBRIGATÓRIO
 {{
-  "codigo_diagrama": "..."
+  "codigo_diagrama": "...",
+  "grafo_diagrama": {{"nos": [...], "arestas": [...]}}
 }}"""
 
 
@@ -368,13 +464,69 @@ PROMPT_FT_E_DIAGRAMA = """## Tarefa
      (planta, controlador prévio, sensor, distúrbio, somadores e realimentação **somente**
      quando o enunciado suportar; **não** invente malha fechada se for malha aberta explícita).
    - Mesmo estilo matplotlib de PROMPT_DIAGRAMA_POR_FT (`FancyBboxPatch`,
-     `FancyArrowPatch`, `Circle`, `ax.axis("off")`).
+     `FancyArrowPatch`, `Circle`, `ax.axis("off")`). Setas: `mutation_scale` entre 10 e 18,
+     `lw` entre 1 e 2 — pontas grandes demais cobrem os rótulos de texto.
    - `control.tf` apenas com parâmetros numéricos no texto; senão diagrama simbólico + prints
      pedindo valores.
    - Com FT numérica, gráfico de apoio (degrau e/ou pzmap).
 
+## Layout obrigatório: sistema mecânico translacional (massa(s), mola(s), amortecedor(es))
+Se o enunciado mencionar **massa(s)**, **mola(s)** e/ou **amortecedor(es)** (ou amortecimento viscoso)
+e for modelagem **translacional** (deslocamento/posição x, força de entrada F, etc.):
+
+1. Use **exatamente dois painéis lado a lado** no **mesmo** `Figure`, por exemplo:
+   `fig, (ax_phy, ax_blk) = plt.subplots(1, 2, figsize=(14, 5.5))` (ou tamanho equivalente).
+2. **Painel esquerdo `ax_phy` — esquema físico “de livro”:**
+   - Massas como blocos/retângulos com rótulos **M₁, M₂, ...** (ou M1, M2 se subscrito for incômodo).
+   - Molas em zigue-zague entre referência fixa e massas; **k₁, k₂** nos trechos.
+   - Amortecedores estilo pistão **ou** `|===` com **b₁, b₂**.
+   - Setas de deslocamento **x₁, x₂** e força de entrada **F** coerentes com o enunciado.
+   - `ax_phy.set_title(...)` deixando claro que é o **esquema físico**.
+3. **Painel direito `ax_blk` — diagrama de blocos / fluxo de sinais:**
+   - Mostrar o caminho **entrada → saída** pedido (ex.: **F(s)** até **X₁(s)** ou **X₂(s)**),
+     com blocos, somadores e realimentações **coerentes com o graus de liberdade** descritos.
+   - **Não** substituir todo o sistema multi-massa por um único bloco agregado **G(s)** **se** o texto
+     descreve **duas ou mais massas acopladas**; use blocos em cascata / somadores que reflitam x₁, x₂.
+   - Para **uma única** massa-mola-amortecedor clássica, um bloco **G(s)** explícito no painel direito é aceitável,
+     desde que o painel esquerdo mostre o desenho físico completo.
+4. Se o enunciado estiver **ambíguo** (entradas/saídas não definidas, ligações desconhecidas), seja **conservador**:
+   produza a melhor hipótese **explícita** em `print(...)` e evite afirmar topologia não dada.
+
+## Grafo estruturado do diagrama (obrigatório)
+Além da FT e do código, descreva a MESMA topologia desenhada como um grafo em
+"grafo_diagrama", para permitir verificação automática por redução algébrica
+(Fórmula de Ganho de Mason) — ela confirma que o diagrama desenhado **de fato reduz**
+à função de transferência declarada, e não só "parece" certo:
+- "nos": lista de {{"id": "...", "tipo": "entrada"|"saida"|"somador"|"bloco", "ganho": "..."}}.
+  "ganho" só se aplica a tipo="bloco" e deve ser uma expressão em s usando os MESMOS símbolos
+  físicos do enunciado (ex.: "1/(R*C*s+1)", nunca valores numéricos inventados).
+- "arestas": lista de {{"origem": "id", "destino": "id", "sinal": "+"|"-"}}. Use "sinal": "-"
+  apenas na entrada de realimentação de um somador; nas demais conexões use "+".
+- Exatamente 1 nó "entrada" e 1 nó "saida". Se o diagrama tiver mais de um bloco (cascata,
+  realimentação, múltiplas massas), o grafo deve refletir a MESMA topologia — não colapse
+  tudo em um único bloco G(s) se o diagrama desenhado tem mais estrutura que isso.
+
+### Exemplo (RC série, caminho direto sem realimentação)
+```json
+{{
+  "funcao_transferencia": "G(s) = 1 / (RCs + 1)",
+  "codigo_diagrama": "...",
+  "grafo_diagrama": {{
+    "nos": [
+      {{"id": "u", "tipo": "entrada"}},
+      {{"id": "g", "tipo": "bloco", "ganho": "1/(R*C*s+1)"}},
+      {{"id": "y", "tipo": "saida"}}
+    ],
+    "arestas": [
+      {{"origem": "u", "destino": "g", "sinal": "+"}},
+      {{"origem": "g", "destino": "y", "sinal": "+"}}
+    ]
+  }}
+}}
+```
+
 ## Regras de saída (API)
-1. JSON somente com "funcao_transferencia" e "codigo_diagrama".
+1. JSON somente com "funcao_transferencia", "codigo_diagrama" e "grafo_diagrama".
 2. codigo_diagrama é uma string única com \\n dentro do JSON.
 3. O servidor executa o código em modo **headless**: `plt.show()` e `savefig(...)` produzem PNG automaticamente.
 4. **Mathtext:** preferir strings brutas tipo `ax.text(..., r'$\\frac{{a}}{{b}}$')` ou barras doubled em aspas não-brutas.
@@ -386,8 +538,82 @@ PROMPT_FT_E_DIAGRAMA = """## Tarefa
 ## Formato de Resposta OBRIGATÓRIO
 {{
   "funcao_transferencia": "G(s) = ...",
-  "codigo_diagrama": "..."
+  "codigo_diagrama": "...",
+  "grafo_diagrama": {{"nos": [...], "arestas": [...]}}
 }}"""
+
+
+# ============================================================================
+# PROMPTS: RETRY CURTO PÓS-VERIFICAÇÃO (ReAct-lite)
+# ============================================================================
+
+PROMPT_CORRECAO_APENAS_FT = """## Correção exigida (verificação automática)
+A saída anterior **não passou** em checagens determinísticas (parse simbólico e/ou gabarito canônico).
+
+**Problemas detectados:**
+{problemas}
+
+**Descrição original:**
+"{descricao}"
+
+**Sua resposta anterior (corrija ou explique lacunas com conservadorismo):**
+{funcao_transferencia_anterior}
+
+## Instruções
+1. Corrija a **função de transferência** para ser **simbolicamente consistente** com o enunciado.
+2. Se o enunciado for **insuficiente** para um modelo único, **não invente** detalhes: devolva a melhor
+   forma simbólica possível e acrescente na própria string uma frase curta final: `Nota: parâmetro ambíguo — ...`
+   listando o que falta (sem JSON extra).
+3. Responda **somente** JSON com a mesma chave que o endpoint /gerar-apenas-ft:
+{{"funcao_transferencia": "G(s) = ..."}}"""
+
+
+PROMPT_CORRECAO_FT_E_DIAGRAMA = """## Correção exigida (verificação automática)
+A saída anterior falhou em checagens determinísticas (FT e/ou layout físico+blocos).
+
+**Problemas detectados:**
+{problemas}
+
+**Descrição original:**
+"{descricao}"
+
+**FT anterior:**
+{funcao_transferencia_anterior}
+
+**Código de diagrama anterior (trecho inicial, referência):**
+{codigo_diagrama_trecho}
+
+## Instruções
+1. Corrija **funcao_transferencia**, **codigo_diagrama** e **grafo_diagrama** de forma **coerente** entre si
+   (o grafo — nós "entrada"/"saida"/"somador"/"bloco" com "ganho", arestas com "sinal" — deve reduzir,
+   pela Fórmula de Ganho de Mason, à FT corrigida).
+2. Se o texto for mecânico translacional com molas/amortecedores, **obrigatoriamente** `plt.subplots(1, 2, ...)`
+   com esquema físico à esquerda e blocos à direita (ver regras longas do prompt principal).
+3. Se houver ambiguidade real, seja conservador: `print` com hipóteses e, se necessário, nota curta na string da FT
+   com prefixo `Nota: parâmetro ambíguo —`.
+4. Responda **somente** JSON com as três chaves:
+{{"funcao_transferencia": "G(s) = ...", "codigo_diagrama": "...", "grafo_diagrama": {{"nos": [...], "arestas": [...]}}}}"""
+
+
+PROMPT_CORRECAO_DIAGRAMA_POR_FT = """## Correção exigida (FT ilegível para o verificador)
+A função de transferência textual usada como base **não pôde ser interpretada** como expressão racional
+em **s** (ex.: falta de `G(s) =`, trecho extra, divisão ambígua).
+
+**Problemas:**
+{problemas}
+
+**FT anterior (contexto):**
+{funcao_transferencia_anterior}
+
+## Instruções
+1. Gere de novo o **código Python** do diagrama, **ainda alinhado** à intenção dessa FT malformada quando possível,
+   mas se a FT for irrecuperável produza um diagrama mínimo válido com mensagens `print` explicando o que faltou.
+2. Descreva a mesma topologia em **grafo_diagrama** (nós "entrada"/"saida"/"somador"/"bloco" com "ganho",
+   arestas com "sinal") quando a FT permitir; se for irrecuperável, omita "grafo_diagrama".
+3. Responda **somente** JSON com as chaves `codigo_diagrama` e, quando possível, `grafo_diagrama`.
+
+Responda **somente**:
+{{"codigo_diagrama": "...", "grafo_diagrama": {{"nos": [...], "arestas": [...]}}}}"""
 
 
 # ============================================================================
@@ -398,7 +624,11 @@ PROMPT_CONFIG = {
     "temperature": 0.2,  # Baixa para respostas mais determinísticas
     "top_p": 0.9,
     "top_k": 40,
-    "max_output_tokens": 8192,  # Aumentado para respostas completas
+    # Endpoints com código de diagrama + grafo_diagrama no mesmo JSON aproximam-se do teto
+    # antigo (8192) e produzem string JSON truncada ("unterminated string"). 16384 corrigiu a
+    # truncagem, mas pareceu aumentar a taxa de timeout do lado do servidor (504
+    # DEADLINE_EXCEEDED) — 12288 é o meio-termo em avaliação.
+    "max_output_tokens": 12288,
 }
 
 
@@ -440,6 +670,51 @@ def formatar_prompt_diagrama_por_ft(funcao_transferencia: str) -> str:
 def formatar_prompt_ft_e_diagrama(descricao: str) -> str:
     """Prompt para gerar FT e código de diagrama a partir da descrição."""
     return PROMPT_FT_E_DIAGRAMA.format(descricao=_normalize_text(descricao))
+
+
+def _bulleted_lines(items: list[str]) -> str:
+    return "\n".join(f"- {x}" for x in items)
+
+
+def formatar_prompt_correcao_apenas_ft(
+    descricao: str, problemas: list[str], funcao_transferencia_anterior: str
+) -> str:
+    """Retry curto após falha do verificador no endpoint apenas-FT."""
+    return PROMPT_CORRECAO_APENAS_FT.format(
+        problemas=_bulleted_lines(problemas),
+        descricao=_normalize_text(descricao),
+        funcao_transferencia_anterior=_normalize_text(funcao_transferencia_anterior),
+    )
+
+
+def formatar_prompt_correcao_ft_e_diagrama(
+    descricao: str,
+    problemas: list[str],
+    funcao_transferencia_anterior: str,
+    codigo_diagrama_anterior: str,
+    codigo_max_chars: int = 900,
+) -> str:
+    """Retry curto após falha do verificador no endpoint FT + diagrama."""
+    code = _normalize_text(codigo_diagrama_anterior)
+    if len(code) > codigo_max_chars:
+        code = code[:codigo_max_chars] + "\n... [truncado]"
+    trecho = code.replace("{", "{{").replace("}", "}}")
+    return PROMPT_CORRECAO_FT_E_DIAGRAMA.format(
+        problemas=_bulleted_lines(problemas),
+        descricao=_normalize_text(descricao),
+        funcao_transferencia_anterior=_normalize_text(funcao_transferencia_anterior),
+        codigo_diagrama_trecho=trecho,
+    )
+
+
+def formatar_prompt_correcao_diagrama_por_ft(
+    problemas: list[str], funcao_transferencia_anterior: str
+) -> str:
+    """Retry opcional quando a FT de entrada não faz parse racional."""
+    return PROMPT_CORRECAO_DIAGRAMA_POR_FT.format(
+        problemas=_bulleted_lines(problemas),
+        funcao_transferencia_anterior=_normalize_text(funcao_transferencia_anterior),
+    )
 
 
 def get_generation_config() -> dict:

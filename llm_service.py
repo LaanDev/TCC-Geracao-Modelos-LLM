@@ -1,6 +1,9 @@
 """
 Serviço de comunicação com o LLM (Google Gemini/Gemma).
 Responsável por: configuração, timeout, retry e parsing de respostas.
+
+Usa o SDK unificado `google-genai` (o antigo `google-generativeai` entrou em
+EOL em 2025-11-30). Guia de migração: https://ai.google.dev/gemini-api/docs/migrate
 """
 
 import json
@@ -10,7 +13,8 @@ import time
 from typing import Any, Dict, Optional, Type
 
 from functools import wraps
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from pydantic import BaseModel, ValidationError
 
 from config import settings
@@ -151,6 +155,15 @@ def _parse_json_from_text(response_text: str) -> Dict[str, Any]:
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError as e:
+        # Alguns modelos anexam texto/comentário depois do objeto JSON válido
+        # (erro "Extra data"); em vez de descartar a resposta inteira, tenta decodificar
+        # só o primeiro valor JSON completo e ignora o que vem depois dele.
+        try:
+            obj, _end = json.JSONDecoder().raw_decode(cleaned)
+            logger.warning("JSON com dado extra após o objeto válido; ignorando o excedente.")
+            return obj
+        except json.JSONDecodeError:
+            pass
         logger.error("Falha ao fazer parse do JSON: %s", e)
         logger.debug("Resposta bruta: %s...", response_text[:RAW_RESPONSE_DEBUG_LENGTH])
         raise LLMParseError(
@@ -171,7 +184,17 @@ def _is_timeout_error(exception: Exception) -> bool:
 
 
 def _normalize_llm_exception(exception: Exception) -> LLMError:
-    """Converte exceção genérica em tipo específico do domínio LLM."""
+    """Converte exceção genérica em tipo específico do domínio LLM.
+
+    `google.genai.errors.APIError` (e subclasses ClientError/ServerError) expõem o
+    código HTTP em `.code`; preferimos essa checagem estruturada e caímos para
+    correspondência textual apenas quando o atributo não existe (ex.: TimeoutError).
+    """
+    if getattr(exception, "code", None) == 429:
+        return LLMQuotaError(
+            "Quota da API excedida. Aguarde cerca de 1 minuto e tente novamente. "
+            f"Detalhes: {exception}"
+        )
     if _is_timeout_error(exception):
         return LLMTimeoutError(f"Timeout na requisição: {exception}")
     if _is_quota_error(exception):
@@ -189,28 +212,31 @@ class LLMService:
     """
 
     def __init__(self):
-        self._model = None
+        self._client: Optional[genai.Client] = None
         self._configure_api()
 
     def _configure_api(self) -> None:
-        """Configura a API do Google com a chave do ambiente."""
+        """Configura o cliente do Google GenAI com a chave e o timeout do ambiente."""
         try:
-            genai.configure(api_key=settings.google_api_key)
-            logger.info("API do Google configurada com sucesso.")
+            self._client = genai.Client(
+                api_key=settings.google_api_key,
+                http_options=types.HttpOptions(timeout=settings.llm_timeout * 1000),
+            )
+            logger.info("Cliente do Google GenAI configurado com sucesso.")
         except Exception as e:
             logger.critical("Falha ao configurar API do Google: %s", e)
             raise LLMError(f"Não foi possível configurar a API: {e}") from e
 
     @property
-    def model(self) -> genai.GenerativeModel:
-        """Modelo Gemini (lazy loading)."""
-        if self._model is None:
-            self._model = genai.GenerativeModel(
-                model_name=settings.llm_model,
-                system_instruction=SYSTEM_PROMPT,
-            )
-            logger.info("Modelo '%s' inicializado.", settings.llm_model)
-        return self._model
+    def client(self) -> genai.Client:
+        """Cliente do Google GenAI (única instância por serviço).
+
+        `_configure_api` sempre define `_client` ou levanta `LLMError` no `__init__`;
+        a checagem aqui é só para não expor `Optional` a quem consome esta propriedade.
+        """
+        if self._client is None:
+            raise LLMError("Cliente do Google GenAI não foi inicializado.")
+        return self._client
 
     def _get_response_text(self, response) -> str:
         """Extrai texto da resposta; levanta LLMError se bloqueada ou vazia."""
@@ -250,17 +276,17 @@ class LLMService:
         logger.debug("Prompt (primeiros 200 chars): %s...", prompt[:200])
 
         start = time.time()
-        generation_config = get_generation_config()
+        config = types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            **get_generation_config(),
+        )
 
         try:
-            response = self.model.generate_content(
-                prompt,
-                generation_config=generation_config,
-                request_options={"timeout": settings.llm_timeout},
+            response = self.client.models.generate_content(
+                model=settings.llm_model,
+                contents=prompt,
+                config=config,
             )
-        except genai.types.generation_types.StopCandidateException as e:
-            logger.error("Geração interrompida: %s", e)
-            raise LLMError(f"Geração interrompida pelo modelo: {e}") from e
         except TimeoutError:
             logger.error("Timeout após %ss", settings.llm_timeout)
             raise LLMTimeoutError(
