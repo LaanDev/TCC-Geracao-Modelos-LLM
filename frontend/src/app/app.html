@@ -1,0 +1,80 @@
+<div class="app">
+  <header class="header">
+    <h1>TCC – Modelagem de Sistemas de Controle</h1>
+    <p class="subtitle">Descreva o sistema e use a IA para obter a função de transferência</p>
+  </header>
+
+  <main class="main">
+    <section class="card form-card">
+      <h2>Descrição do sistema</h2>
+      <textarea
+        class="textarea"
+        [ngModel]="descricao()"
+        (ngModelChange)="descricao.set($event)"
+        placeholder="Ex: Um circuito RC série com saída no capacitor..."
+        rows="4"
+      ></textarea>
+
+      <div class="validar-campo">
+        <label for="ft-usuario">Sua função de transferência (só para "Validar")</label>
+        <input
+          id="ft-usuario"
+          type="text"
+          class="input"
+          [ngModel]="funcaoUsuario()"
+          (ngModelChange)="funcaoUsuario.set($event)"
+          placeholder="Ex: G(s) = 1 / (RCs + 1)"
+        />
+      </div>
+
+      <div class="botoes">
+        <button
+          class="btn btn-primary"
+          (click)="gerarApenasFT()"
+          [disabled]="loading() || !descricao().trim()"
+        >
+          Gerar apenas FT
+        </button>
+        <button
+          class="btn btn-secondary"
+          (click)="gerarAnaliseCompleta()"
+          [disabled]="loading() || !descricao().trim()"
+        >
+          Análise completa
+        </button>
+        <button
+          class="btn btn-outline"
+          (click)="validarResposta()"
+          [disabled]="loading() || !descricao().trim() || !funcaoUsuario().trim()"
+        >
+          Validar minha resposta
+        </button>
+      </div>
+    </section>
+
+    @if (loading() || resultado() || erro()) {
+      <section class="card result-card">
+        @if (loading()) {
+          <div class="loading">
+            <span class="spinner"></span> Aguardando resposta da API...
+          </div>
+        }
+        @if (erro()) {
+          <div class="erro">
+            <strong>Erro:</strong> {{ erro() }}
+          </div>
+        }
+        @if (resultado() && !loading()) {
+          <div class="resultado">
+            <h3>Resultado</h3>
+            <pre class="json">{{ resultadoJson() }}</pre>
+          </div>
+        }
+      </section>
+    }
+  </main>
+
+  <footer class="footer">
+    <p>API em <code>http://127.0.0.1:8000</code> · Docs: <a href="http://127.0.0.1:8000/docs" target="_blank" rel="noopener noreferrer">/docs</a></p>
+  </footer>
+</div>

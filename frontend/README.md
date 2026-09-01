@@ -1,10 +1,10 @@
 # Frontend – TCC API de Modelagem
 
-Interface em **React** (Vite) para usar a API de modelagem de sistemas de controle.
+Interface em **Angular** (standalone components, signals) para usar a API de modelagem de sistemas de controle.
 
 ## Pré-requisitos
 
-- **Node.js** instalado (recomendado: 18 ou 20)
+- **Node.js** instalado (recomendado: 20 ou superior)
 - **API rodando** em `http://127.0.0.1:8000` (rode `python main.py` na raiz do projeto)
 
 ## Como rodar
@@ -21,7 +21,7 @@ npm install
 ### 2. Subir o servidor de desenvolvimento
 
 ```bash
-npm run dev
+npm start
 ```
 
 O frontend abre em **http://localhost:3000**.
@@ -31,38 +31,42 @@ O frontend abre em **http://localhost:3000**.
 - **Descrição do sistema:** digite ou edite o texto (ex.: circuito RC, massa-mola, etc.).
 - **Gerar apenas FT:** retorna só a função de transferência.
 - **Análise completa:** retorna lei aplicada, EDO, passos de Laplace, FT e código Python.
-- **Validar minha resposta:** preencha o campo “Sua função de transferência” e clique no botão para o modo tutor.
+- **Validar minha resposta:** preencha o campo "Sua função de transferência" e clique no botão para o modo tutor.
 
 O resultado aparece em JSON abaixo dos botões.
 
-## Estrutura do projeto (React)
+## Estrutura do projeto (Angular)
 
 ```
 frontend/
-├── public/          # Arquivos estáticos (favicon etc.)
+├── public/               # Arquivos estáticos (favicon etc.)
 ├── src/
-│   ├── App.jsx      # Componente principal e lógica da tela
-│   ├── App.css      # Estilos do App
-│   ├── main.jsx     # Entrada da aplicação React
-│   └── index.css    # Estilos globais
-├── index.html       # HTML raiz
-├── vite.config.js   # Configuração do Vite (proxy para a API)
-├── package.json     # Dependências e scripts
-└── README.md        # Este arquivo
+│   ├── app/
+│   │   ├── app.ts        # Componente principal (standalone) e lógica da tela
+│   │   ├── app.html      # Template do componente
+│   │   ├── app.css       # Estilos do componente
+│   │   └── app.config.ts # Configuração da aplicação (providers: HttpClient etc.)
+│   ├── main.ts            # Bootstrap da aplicação Angular
+│   └── styles.css         # Estilos globais
+├── index.html              # HTML raiz
+├── proxy.conf.json         # Proxy do dev server (Angular CLI) para a API
+├── angular.json             # Configuração do workspace/CLI Angular
+├── package.json              # Dependências e scripts
+└── README.md                  # Este arquivo
 ```
 
 ## Proxy da API
 
-No `vite.config.js`, as chamadas a **`/api`** são redirecionadas para **`http://127.0.0.1:8000`**.  
-Assim, o frontend usa `fetch('/api/gerar-apenas-ft', ...)` e o Vite envia a requisição para a API.
+Em `proxy.conf.json`, as chamadas a **`/api`** são redirecionadas para **`http://127.0.0.1:8000`**.
+Assim, o frontend usa `HttpClient` apontando para `/api/gerar-apenas-ft`, e o Angular CLI (`ng serve --proxy-config proxy.conf.json`, já configurado no script `npm start`) encaminha a requisição para a API.
 
 ## Scripts
 
-| Comando        | Descrição                          |
-|----------------|------------------------------------|
-| `npm run dev`  | Sobe o servidor de desenvolvimento |
-| `npm run build`| Gera o build para produção         |
-| `npm run preview` | Sobe um servidor local para testar o build |
+| Comando         | Descrição                                   |
+|-----------------|----------------------------------------------|
+| `npm start`     | Sobe o servidor de desenvolvimento (com proxy) |
+| `npm run build` | Gera o build para produção                    |
+| `npm test`      | Roda os testes unitários (Vitest)             |
 
 ## Build para produção
 
@@ -72,12 +76,13 @@ Para gerar os arquivos estáticos e servir pela API (opcional):
 npm run build
 ```
 
-Os arquivos ficam em `frontend/dist/`. Depois você pode configurar o FastAPI para servir essa pasta em `/` (ver documentação do backend).
+Os arquivos ficam em `frontend/dist/frontend-angular/browser/`. Depois você pode configurar o FastAPI para servir essa pasta em `/` (ver documentação do backend).
 
-## Aprendendo React
+## Aprendendo Angular
 
-- **Componentes:** `App.jsx` é um componente que usa `useState` para o texto, resultado e loading.
-- **Eventos:** os botões usam `onClick` para chamar funções que fazem `fetch` na API.
-- **Estado:** `loading`, `resultado` e `erro` controlam o que aparece na tela (loading, JSON ou mensagem de erro).
+- **Componentes standalone:** `App` (em `app.ts`) é um componente autocontido — sem `NgModule` — que declara suas próprias `imports` (`FormsModule`, para o `[(ngModel)]`).
+- **Signals:** o estado da tela (`descricao`, `resultado`, `loading`, `erro`) é armazenado em `signal()`, o mecanismo de reatividade mais recente do Angular (substitui `useState` do React).
+- **Injeção de dependência:** `HttpClient` é injetado no construtor do componente e usado para chamar a API — configurado em `app.config.ts` via `provideHttpClient()`.
+- **Novo *control flow*:** o template usa `@if` diretamente (sintaxe moderna do Angular), em vez da antiga diretiva `*ngIf`.
 
-Para ir além: [React – Documentação](https://react.dev).
+Para ir além: [Angular – Documentação](https://angular.dev).
