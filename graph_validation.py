@@ -9,11 +9,11 @@ transferência equivalente pela Fórmula de Ganho de Mason, e compara simbolicam
 certo (dois painéis + palavras-chave), sem nunca confirmar que o diagrama desenhado
 de fato reduz à FT anunciada.
 
-Protótipo (item de prioridade 2 da Proposta): a lógica de redução do grafo está
-implementada e testada aqui, mas ainda não está conectada aos prompts/endpoints —
-isso exige antes uma mudança no prompt para o LLM emitir `DiagramGraph`, que é o
-tipo de mudança que deve passar pela mesma metodologia de "Ciência do Prompt"
-(iteração + validação) usada para os prompts atuais, e ainda não foi feita.
+A lógica de redução está implementada, testada e conectada aos prompts e aos três
+endpoints que produzem diagrama: `prompts.py` pede `grafo_diagrama` em
+PROMPT_ANALISE_COMPLETA, PROMPT_DIAGRAMA_POR_FT e PROMPT_FT_E_DIAGRAMA, e `main.py`
+chama `_attach_graph_verification()` em `/gerar-diagrama-por-ft`,
+`/gerar-ft-e-diagrama` e `/gerar-analise-completa`.
 """
 
 from __future__ import annotations
