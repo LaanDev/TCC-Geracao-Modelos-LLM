@@ -112,6 +112,26 @@ class FuncaoTransferenciaResponse(BaseModel):
         False,
         description="True se houve segunda chamada ao LLM com prompt de correção curta",
     )
+    verificacao_ensemble_executada: bool = Field(
+        False,
+        description="True se pelo menos 2 provedores de LLM (Google/Anthropic/Groq/OpenAI) estavam configurados e o ensemble rodou",
+    )
+    verificacao_ensemble_ok: bool = Field(
+        True,
+        description="False se a FT retornada não é equivalente ao consenso do ensemble entre provedores",
+    )
+    mensagem_verificacao_ensemble: Optional[str] = Field(
+        None,
+        description="Detalhes quando a verificação por ensemble falha ou não pôde ser executada",
+    )
+    ensemble_concordancia: Optional[str] = Field(
+        None,
+        description='Fração "n/total" de provedores que concordaram entre si no ensemble',
+    )
+    ensemble_consenso_ft: Optional[str] = Field(
+        None,
+        description="FT de consenso do ensemble, para comparação/depuração",
+    )
 
 
 class AnaliseCompletaResponse(BaseModel):
@@ -160,6 +180,26 @@ class AnaliseCompletaResponse(BaseModel):
             "dedicado (custaria uma segunda chamada completa ao LLM), então falhas ficam "
             "só sinalizadas em verificacao_ft_ok/mensagem_verificacao"
         ),
+    )
+    verificacao_ensemble_executada: bool = Field(
+        False,
+        description="True se pelo menos 2 provedores de LLM (Google/Anthropic/Groq/OpenAI) estavam configurados e o ensemble rodou",
+    )
+    verificacao_ensemble_ok: bool = Field(
+        True,
+        description="False se a FT retornada não é equivalente ao consenso do ensemble entre provedores",
+    )
+    mensagem_verificacao_ensemble: Optional[str] = Field(
+        None,
+        description="Detalhes quando a verificação por ensemble falha ou não pôde ser executada",
+    )
+    ensemble_concordancia: Optional[str] = Field(
+        None,
+        description='Fração "n/total" de provedores que concordaram entre si no ensemble',
+    )
+    ensemble_consenso_ft: Optional[str] = Field(
+        None,
+        description="FT de consenso do ensemble, para comparação/depuração",
     )
     grafo_diagrama: Optional[DiagramGraph] = Field(
         None,
@@ -357,6 +397,48 @@ class FuncaoTransferenciaEDiagramaResponse(BaseModel):
     diagramas_arquivos: List[str] = Field(
         default_factory=list,
         description="Caminhos relativos dos PNG gravados em diagrams/",
+    )
+
+
+# -----------------------------------------------------------------------------
+# Ensemble
+# -----------------------------------------------------------------------------
+
+
+class ProviderRespostaSchema(BaseModel):
+    """Resultado de um único provedor de LLM dentro do ensemble."""
+
+    provedor: str = Field(..., description="Nome do provedor: google, openai ou anthropic")
+    modelo: str = Field(..., description="Modelo efetivamente usado nesse provedor")
+    sucesso: bool = Field(..., description="False se a chamada falhou (rede, quota, etc.)")
+    funcao_transferencia: Optional[str] = Field(
+        None, description="FT retornada por esse provedor, quando bem-sucedido"
+    )
+    erro: Optional[str] = Field(None, description="Mensagem de erro quando sucesso=False")
+
+
+class EnsembleFTResponse(BaseModel):
+    """Resposta: consenso entre múltiplos provedores de LLM para a função de transferência."""
+
+    ensemble_executado: bool = Field(
+        False,
+        description="False quando menos de 2 provedores têm chave de API configurada",
+    )
+    respostas: List[ProviderRespostaSchema] = Field(
+        default_factory=list,
+        description="Resposta individual de cada provedor consultado",
+    )
+    consenso_ft: Optional[str] = Field(
+        None,
+        description="FT do maior grupo de respostas simbolicamente equivalentes (SymPy, não string)",
+    )
+    concordancia: Optional[str] = Field(
+        None,
+        description='Fração "n/total" de provedores bem-sucedidos que concordaram com o consenso',
+    )
+    mensagem: Optional[str] = Field(
+        None,
+        description="Detalhes quando o ensemble não roda ou nenhum provedor produz FT parseável",
     )
 
 

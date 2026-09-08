@@ -1,0 +1,50 @@
+@if (layout(); as l) {
+  <svg
+    [attr.viewBox]="'0 0 ' + l.width + ' ' + l.height"
+    [attr.width]="l.width"
+    [attr.height]="l.height"
+    class="grafo-svg"
+  >
+    <defs>
+      <marker id="grafo-seta" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" class="seta-path" />
+      </marker>
+    </defs>
+
+    @for (e of l.edges; track $index) {
+      <path [attr.d]="e.d" class="aresta" [class.aresta-realimentacao]="e.backward" marker-end="url(#grafo-seta)" />
+      @if (e.showLabel) {
+        <text [attr.x]="e.labelX" [attr.y]="e.labelY" class="rotulo-sinal" [class.rotulo-negativo]="e.sinal === '-'">{{ e.sinal }}</text>
+      }
+    }
+
+    @for (n of l.nodes; track n.id) {
+      @switch (n.tipo) {
+        @case ('bloco') {
+          <rect
+            [attr.x]="n.x - n.halfW"
+            [attr.y]="n.y - n.halfH"
+            [attr.width]="n.halfW * 2"
+            [attr.height]="n.halfH * 2"
+            rx="8"
+            class="no-bloco"
+          />
+          <text [attr.x]="n.x" [attr.y]="n.y - 6" class="no-id">{{ n.id }}</text>
+          @if (n.ganho) {
+            <text [attr.x]="n.x" [attr.y]="n.y + 14" [attr.font-size]="n.ganhoFontSize" class="no-ganho">{{ n.ganho }}</text>
+          }
+        }
+        @case ('somador') {
+          <circle [attr.cx]="n.x" [attr.cy]="n.y" [attr.r]="n.halfW" class="no-somador" />
+          <text [attr.x]="n.x" [attr.y]="n.y + 6" class="no-somador-simbolo">Σ</text>
+        }
+        @default {
+          <circle [attr.cx]="n.x" [attr.cy]="n.y" r="2.5" class="no-terminal" />
+          <text [attr.x]="n.x" [attr.y]="n.y - 12" class="no-terminal-id">{{ n.id }}</text>
+        }
+      }
+    }
+  </svg>
+} @else {
+  <p class="grafo-vazio">Grafo indisponível para visualização.</p>
+}

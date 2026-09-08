@@ -83,7 +83,7 @@ def codigo_diagrama_sugere_layout_fisico_blocos(codigo: str) -> bool:
     return False
 
 
-_GS_ASSIGN = re.compile(r"[Gg]\s*\(\s*s\s*\)\s*=")
+_GS_ASSIGN = re.compile(r"(?:[Gg]|T)(?:_\w+)?\s*\(\s*s\s*\)\s*=")
 _STATEMENT_BOUNDARY = re.compile(r"[\n\r]|(?<=[a-zA-Z0-9\)\]])\.\s")
 
 
@@ -163,6 +163,15 @@ _GENERIC_TEMPLATE_SYMBOLS = {
     "n",
 }
 
+# Subconjunto de _GENERIC_TEMPLATE_SYMBOLS que só existe como notação de "forma padrão"
+# de controle — nunca como parâmetro físico literal do enunciado (diferente de "K", que
+# É usado como constante de mola/ganho físico real em vários problemas deste projeto).
+# Quando qualquer um destes aparece numa expressão — mesmo MISTURADO com parâmetros
+# físicos reais, ex. "R_th/(τs+1)" (K substituído por R_th, mas τ = R_th*C_th ainda
+# simbólico) — a expressão não é a resposta final comparável ao grafo/gabarito, porque
+# a relação entre τ e os parâmetros físicos foi definida em prosa, não algebricamente.
+_GENERIC_SUBSTITUTION_ONLY_SYMBOLS = _GENERIC_TEMPLATE_SYMBOLS - {"K"}
+
 
 def _looks_like_generic_template(expr: Expr) -> bool:
     """
@@ -176,16 +185,28 @@ def _looks_like_generic_template(expr: Expr) -> bool:
     return bool(names) and names.issubset(_GENERIC_TEMPLATE_SYMBOLS)
 
 
+def _has_generic_substitution_symbol(expr: Expr) -> bool:
+    """
+    True quando a expressão usa τ/ωn/ζ/ω/n mesmo MISTURADO com parâmetros físicos reais
+    (ex.: "R_th/(τs+1)") — diferente de `_looks_like_generic_template`, que só pega o
+    caso em que TODOS os símbolos são genéricos.
+    """
+    names = {str(sym) for sym in expr.free_symbols} - {"s"}
+    return bool(names & _GENERIC_SUBSTITUTION_ONLY_SYMBOLS)
+
+
 def parse_transfer_function_expr(ft_string: str) -> Expr:
     """
     Converte 'G(s) = ...' em expressão SymPy (variável simbólica s + demais identificadores).
 
     Quando o texto contém mais de uma declaração 'G(s) = ...', tenta a última primeiro
     (ver `_candidate_rhs_list`) e recua para as anteriores se a mais recente não fizer
-    parse, ou se só usar símbolos de "forma padrão" genérica (ver
-    `_looks_like_generic_template`) — assim nem uma definição provisória mal-formada
-    ('G(s) = Vc(s)/Vin(s):') nem uma citação didática da forma padrão genérica impedem
-    a leitura da expressão específica do problema.
+    parse, se só usar símbolos de "forma padrão" genérica (`_looks_like_generic_template`),
+    ou se usar τ/ωn/ζ/ω mesmo misturado com parâmetros físicos reais
+    (`_has_generic_substitution_symbol`, ex. "R_th/(τs+1)" com τ=R_th·C_th definido só em
+    prosa) — assim nem uma definição provisória mal-formada ('G(s) = Vc(s)/Vin(s):') nem
+    uma citação didática da forma padrão genérica impedem a leitura da expressão
+    específica do problema.
     """
     candidates = _candidate_rhs_list(ft_string)
     if not candidates:
@@ -201,7 +222,7 @@ def parse_transfer_function_expr(ft_string: str) -> Expr:
         except Exception as exc:  # noqa: BLE001 — domínio: strings arbitrárias do LLM
             last_error = exc
             continue
-        if _looks_like_generic_template(parsed):
+        if _looks_like_generic_template(parsed) or _has_generic_substitution_symbol(parsed):
             if generic_fallback is None:
                 generic_fallback = parsed
             continue

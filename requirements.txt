@@ -15,6 +15,10 @@ pydantic-settings>=2.1.0
 # google-generativeai foi descontinuado (EOL 2025-11-30); usamos o SDK unificado google-genai
 google-genai>=1.0.0
 
+# --- Ensemble entre provedores (Seção 2.4 / 3.4) ---
+openai>=1.0.0
+anthropic>=0.40.0
+
 # --- Variáveis de Ambiente ---
 python-dotenv>=1.0.0
 

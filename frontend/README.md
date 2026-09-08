@@ -31,9 +31,9 @@ O frontend abre em **http://localhost:3000**.
 - **Descrição do sistema:** digite ou edite o texto (ex.: circuito RC, massa-mola, etc.).
 - **Gerar apenas FT:** retorna só a função de transferência.
 - **Análise completa:** retorna lei aplicada, EDO, passos de Laplace, FT e código Python.
-- **Validar minha resposta:** preencha o campo "Sua função de transferência" e clique no botão para o modo tutor.
 
-O resultado aparece em JSON abaixo dos botões.
+A função de transferência aparece em destaque, seguida do diagrama de blocos, do grafo
+estruturado (quando houver) e do JSON completo do resultado.
 
 ## Estrutura do projeto (Angular)
 

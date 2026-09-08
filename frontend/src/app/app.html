@@ -15,18 +15,6 @@
         rows="4"
       ></textarea>
 
-      <div class="validar-campo">
-        <label for="ft-usuario">Sua função de transferência (só para "Validar")</label>
-        <input
-          id="ft-usuario"
-          type="text"
-          class="input"
-          [ngModel]="funcaoUsuario()"
-          (ngModelChange)="funcaoUsuario.set($event)"
-          placeholder="Ex: G(s) = 1 / (RCs + 1)"
-        />
-      </div>
-
       <div class="botoes">
         <button
           class="btn btn-primary"
@@ -41,13 +29,6 @@
           [disabled]="loading() || !descricao().trim()"
         >
           Análise completa
-        </button>
-        <button
-          class="btn btn-outline"
-          (click)="validarResposta()"
-          [disabled]="loading() || !descricao().trim() || !funcaoUsuario().trim()"
-        >
-          Validar minha resposta
         </button>
       </div>
     </section>
@@ -66,6 +47,38 @@
         }
         @if (resultado() && !loading()) {
           <div class="resultado">
+            @if (funcaoTransferencia(); as ft) {
+              <h3>Função de Transferência</h3>
+              <p class="ft-destaque">{{ ft }}</p>
+            }
+            @if (diagramas().length > 0) {
+              <h3>Diagrama de blocos</h3>
+              <div class="diagramas">
+                @for (src of diagramas(); track $index) {
+                  <img class="diagrama-img" [src]="src" alt="Diagrama de blocos gerado" />
+                }
+              </div>
+            }
+            @if (grafoDiagrama()) {
+              <h3>
+                Grafo do diagrama
+                @if (verificacaoGrafoExecutada()) {
+                  @if (verificacaoGrafoOk()) {
+                    <span class="selo selo-ok">✓ coerente com a FT (Mason)</span>
+                  } @else {
+                    <span class="selo selo-erro">✗ incoerência detectada</span>
+                  }
+                }
+              </h3>
+              <app-grafo-diagrama [grafo]="grafoDiagrama()" />
+              @if (mensagemVerificacaoGrafo(); as msg) {
+                <p class="mensagem-grafo">{{ msg }}</p>
+              }
+              <details class="grafo-json-details">
+                <summary>JSON do grafo (nós e arestas)</summary>
+                <pre class="json">{{ grafoDiagramaJson() }}</pre>
+              </details>
+            }
             <h3>Resultado</h3>
             <pre class="json">{{ resultadoJson() }}</pre>
           </div>

@@ -3,7 +3,7 @@ Configurações centralizadas da aplicação.
 Usa pydantic-settings para validação e carregamento a partir do .env.
 """
 
-from typing import List
+from typing import List, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -38,6 +38,22 @@ class Settings(BaseSettings):
     # Roda só quando o LLM emite "grafo_diagrama"; se ausente/malformado, é ignorada
     # silenciosamente (não bloqueia a resposta), então é seguro deixar ligada por padrão.
     graph_validation_enabled: bool = True
+
+    # Ensemble entre provedores de LLM diferentes (Google + Anthropic + Groq + OpenAI): cada
+    # provedor configurado (chave de API presente) responde à mesma pergunta em paralelo,
+    # e o consenso é decidido por equivalência simbólica (SymPy) entre as FTs — não por
+    # comparação de string. Provedores sem chave configurada são simplesmente pulados;
+    # o ensemble só roda de fato com pelo menos 2 provedores disponíveis.
+    ensemble_enabled: bool = True
+    ensemble_timeout: int = 60
+    openai_api_key: Optional[str] = None
+    openai_model: str = "gpt-4o-mini"
+    anthropic_api_key: Optional[str] = None
+    anthropic_model: str = "claude-haiku-4-5-20251001"
+    # Groq: tier gratuito sem cartão de crédito (console.groq.com/keys), API compatível com
+    # o formato da OpenAI (mesmo SDK `openai`, só troca a `base_url`).
+    groq_api_key: Optional[str] = None
+    groq_model: str = "openai/gpt-oss-120b"
 
     host: str = "127.0.0.1"
     port: int = 8000

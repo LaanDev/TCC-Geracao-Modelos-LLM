@@ -81,6 +81,65 @@ class TestExtracaoFtEmTextoVerboso:
         L, C, R, s = symbols("L C R s")
         assert simplify(expr - 1 / (L * C * s**2 + R * C * s + 1)) == 0
 
+    def test_forma_padrao_com_parametro_fisico_misturado_a_tau_nao_vence(self):
+        """
+        Achado real (endpoint de análise térmica, verificação por grafos): o modelo
+        substitui K pelo parâmetro físico real (R_th) mas mantém τ simbólico ("K = R_th
+        e τ = R_th·C_th" definido só em prosa) na ÚLTIMA declaração "G(s) = ...". Como
+        essa expressão mistura R_th (não-genérico) com τ (genérico), o filtro antigo
+        (`_looks_like_generic_template`, que exige TODOS os símbolos genéricos) não a
+        rejeitava — fazendo o parser comparar contra "R_th/(τs+1)" em vez da forma
+        expandida "R_th/(R_th·C_th·s+1)", que é a que bate com o grafo estrutural.
+        """
+        ft = (
+            "G(s) = R_th / (R_th * C_th * s + 1)\n\n"
+            "Na forma padrão de 1ª ordem, G(s) = K / (τs + 1), "
+            "onde K = R_th (ganho DC) e τ = R_th * C_th (constante de tempo)."
+        )
+        expr = parse_transfer_function_expr(ft)
+        R_th, C_th, s = symbols("R_th C_th s")
+        assert simplify(expr - R_th / (R_th * C_th * s + 1)) == 0
+
+    def test_notacao_t_de_malha_fechada_e_reconhecida_como_g(self):
+        """
+        Achado real (endpoint de análise completa, verificação por grafos): para
+        sistemas de malha fechada, o modelo costuma nomear a FT resultante "T(s)"
+        (convenção padrão para FT de malha fechada, reservando "G(s)" para o caminho
+        direto) em vez de "G(s)" — o que o extrator antigo (só reconhecia "G(s) =")
+        nunca encontrava, caindo no fallback lenient que pega o primeiro "=" do texto
+        (nesse caso, uma frase de definição informal "T(s) = Y(s)/R(s), e:", não
+        parseável) em vez da equação de verdade, mais adiante no texto.
+        """
+        ft = (
+            "A função de transferência de malha fechada, T(s) = Y(s)/R(s), é:\n\n"
+            "T(s) = K / (s^2 + 3s + (2 + K * H))\n\n"
+            "Esta é a forma padrão de uma função de transferência de segunda ordem."
+        )
+        expr = parse_transfer_function_expr(ft)
+        s, K, H = symbols("s K H")
+        assert simplify(expr - K / (s**2 + 3 * s + (2 + K * H))) == 0
+
+    def test_subscrito_g_mf_de_malha_fechada_e_reconhecido(self):
+        """
+        Achado real (mesmo endpoint): quando o modelo nomeia a FT de malha fechada
+        "G_mf(s)" (subscrito, "malha fechada") em vez de "G(s)" puro, o extrator antigo
+        (só reconhecia "G(s) =" ou "T(s) =" adjacentes, sem subscrito) não encontrava
+        nenhum candidato correspondente a essa linha — sobrando só a citação didática da
+        forma padrão genérica (K·ωn²/...) mais adiante no texto, que então "vencia" por
+        ser o único candidato disponível.
+        """
+        ft = (
+            "A função de transferência de malha fechada do sistema, relacionando a "
+            "saída Y(s) com a referência R(s), é:\n\n"
+            "**G_mf(s) = Y(s) / R(s) = K / (s^2 + 3s + (2 + K * H))**\n\n"
+            "Esta é a forma padrão de uma função de transferência de segunda ordem. "
+            "Podemos compará-la com a forma geral:\n\n"
+            "G(s) = K * ωn² / (s² + 2ζωn s + ωn²)"
+        )
+        expr = parse_transfer_function_expr(ft)
+        s, K, H = symbols("s K H")
+        assert simplify(expr - K / (s**2 + 3 * s + (2 + K * H))) == 0
+
     def test_crase_de_codigo_e_colchetes_como_agrupamento(self):
         """
         Achado real (Caso de Teste 5 / motor CC): o modelo envolveu a FT em crases de

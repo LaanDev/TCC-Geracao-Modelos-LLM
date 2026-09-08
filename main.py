@@ -25,6 +25,8 @@ from schemas import (
     FuncaoTransferenciaEDiagramaResponse,
     AnaliseCompletaResponse,
     ValidacaoResponse,
+    EnsembleFTResponse,
+    ProviderRespostaSchema,
     ErrorResponse,
 )
 from prompts import (
@@ -47,6 +49,7 @@ from ft_verification import (
     verify_transfer_function,
 )
 from graph_validation import DiagramGraph, verify_diagram_graph
+from ensemble_service import run_ensemble_ft, verify_ft_with_ensemble
 
 # -----------------------------------------------------------------------------
 # Logging
@@ -267,6 +270,28 @@ def _attach_graph_verification(payload: dict[str, Any], funcao_transferencia: st
     payload["mensagem_verificacao_grafo"] = None if out.ok else "; ".join(out.problemas)
 
 
+def _attach_ensemble_verification(payload: dict[str, Any], descricao: str) -> None:
+    """
+    Cruza a FT já obtida (tipicamente do Google) com o consenso entre os provedores de
+    LLM configurados (Ensemble, Seção 3.4). Como as demais camadas de verificação, nunca
+    bloqueia a resposta: sem provedores suficientes, fica só marcada como não executada.
+    """
+    if not settings.ensemble_enabled:
+        payload["verificacao_ensemble_executada"] = False
+        payload["verificacao_ensemble_ok"] = True
+        payload["mensagem_verificacao_ensemble"] = None
+        payload["ensemble_concordancia"] = None
+        payload["ensemble_consenso_ft"] = None
+        return
+
+    out = verify_ft_with_ensemble(descricao, payload["funcao_transferencia"])
+    payload["verificacao_ensemble_executada"] = out.executado
+    payload["verificacao_ensemble_ok"] = out.ok
+    payload["mensagem_verificacao_ensemble"] = out.mensagem
+    payload["ensemble_concordancia"] = out.concordancia
+    payload["ensemble_consenso_ft"] = out.consenso_ft
+
+
 def _merged_verify_ft_e_diagrama(descricao: str, payload: dict[str, Any]) -> FTVerificationOutcome:
     ft_out = verify_transfer_function(descricao, payload["funcao_transferencia"])
     layout_out = verify_diagram_physical_layout(descricao, payload.get("codigo_diagrama") or "")
@@ -330,7 +355,49 @@ def api_gerar_apenas_ft(request: ProblemaRequest):
             executed=False,
             retried=False,
         )
+    _attach_ensemble_verification(payload, request.descricao)
     return payload
+
+
+@app.post(
+    "/gerar-apenas-ft-ensemble",
+    response_model=EnsembleFTResponse,
+    responses={500: {"model": ErrorResponse}},
+    summary="Gera a FT com consenso entre múltiplos provedores de LLM (Ensemble)",
+    description="""
+Envia a mesma descrição, em paralelo, para todos os provedores de LLM configurados
+(Google, Anthropic, Groq, OpenAI — cada um só participa se tiver chave de API no `.env`) e
+apura o consenso por **equivalência simbólica** (SymPy), não por comparação de string:
+FTs escritas diferente mas matematicamente iguais contam como o mesmo voto.
+
+**Requer pelo menos 2 provedores configurados** para produzir consenso; com só 1 (ou
+nenhum), `ensemble_executado` vem `false` e a mensagem explica o motivo.
+    """,
+    tags=["Modelagem"],
+)
+@with_llm_error_handling
+def api_gerar_apenas_ft_ensemble(request: ProblemaRequest):
+    """Gera a FT via consenso entre múltiplos provedores de LLM (Google/Anthropic/Groq/OpenAI)."""
+    logger.info(
+        "Requisição /gerar-apenas-ft-ensemble: %s", _truncate_for_log(request.descricao)
+    )
+    outcome = run_ensemble_ft(request.descricao)
+    return EnsembleFTResponse(
+        ensemble_executado=outcome.executado,
+        respostas=[
+            ProviderRespostaSchema(
+                provedor=r.provedor,
+                modelo=r.modelo,
+                sucesso=r.sucesso,
+                funcao_transferencia=r.funcao_transferencia,
+                erro=r.erro,
+            )
+            for r in outcome.respostas
+        ],
+        consenso_ft=outcome.consenso_ft,
+        concordancia=outcome.concordancia,
+        mensagem=outcome.mensagem,
+    )
 
 
 @app.post(
@@ -464,6 +531,7 @@ def api_gerar_analise_completa(request: ProblemaRequest):
         )
 
     _attach_graph_verification(payload, payload["funcao_transferencia"])
+    _attach_ensemble_verification(payload, request.descricao)
     if payload.get("codigo_diagrama"):
         _execute_diagram_on_payload(payload, "gerar-analise-completa")
     return payload

@@ -1,0 +1,87 @@
+:host {
+  display: block;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.grafo-svg {
+  display: block;
+  max-width: 100%;
+}
+
+.grafo-vazio {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.aresta {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.8;
+}
+
+.aresta-realimentacao {
+  stroke: var(--text-muted);
+  stroke-dasharray: 5 3;
+}
+
+.seta-path {
+  fill: var(--text-muted);
+}
+
+.rotulo-sinal {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--success);
+  text-anchor: middle;
+}
+
+.rotulo-negativo {
+  fill: var(--error);
+}
+
+.no-bloco {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+
+.no-id {
+  font-size: 14px;
+  font-style: italic;
+  fill: var(--text);
+  text-anchor: middle;
+}
+
+.no-ganho {
+  fill: var(--text-muted);
+  text-anchor: middle;
+  font-family: 'Courier New', monospace;
+}
+
+.no-somador {
+  fill: var(--bg);
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+
+.no-somador-simbolo {
+  font-size: 16px;
+  fill: var(--text);
+  text-anchor: middle;
+}
+
+.no-terminal {
+  fill: var(--accent);
+}
+
+.no-terminal-id {
+  font-size: 13px;
+  font-style: italic;
+  fill: var(--text);
+  text-anchor: middle;
+}

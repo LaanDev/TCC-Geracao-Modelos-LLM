@@ -3,19 +3,26 @@ Testes de integração para os endpoints da API.
 Usa mocks para não depender de chamadas reais ao LLM.
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
-from fastapi.testclient import TestClient
-
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from diagram_executor import DiagramExecResult
-
-# Mock das configurações antes de importar
+# Mock das configurações ANTES de qualquer import do projeto (inclusive diagram_executor,
+# que já importa `config.settings` e construiria o singleton lendo o .env real da máquina
+# local antes destas linhas, se viesse primeiro). As chaves de ensemble são zeradas
+# explicitamente para os testes não dependerem de quais provedores o desenvolvedor tem
+# configurados localmente — cada teste de ensemble monkeypatcha o que precisa individualmente.
 os.environ["GOOGLE_API_KEY"] = "fake-api-key-for-testing"
+os.environ["OPENAI_API_KEY"] = ""
+os.environ["ANTHROPIC_API_KEY"] = ""
+os.environ["GROQ_API_KEY"] = ""
 os.environ["LOG_LEVEL"] = "WARNING"
+
+import pytest
+from unittest.mock import patch, MagicMock
+from fastapi.testclient import TestClient
+
+from diagram_executor import DiagramExecResult
 
 
 # ============================================================================
@@ -191,8 +198,124 @@ class TestEndpointApenasFT:
             "/gerar-apenas-ft",
             json={"descricao": "Circuito RC série com saída no capacitor"}
         )
-        
         mock_llm_ft.generate.assert_called_once()
+
+    @pytest.mark.api
+    def test_gerar_ft_com_ensemble_concordando(self, client, mock_llm_ft):
+        """Campos de ensemble devem refletir concordância quando o consenso bate com a FT."""
+        from ensemble_service import EnsembleVerificationOutcome
+
+        out = EnsembleVerificationOutcome(
+            executado=True, ok=True, concordancia="2/2", consenso_ft="G(s) = 1 / (RCs + 1)"
+        )
+        with patch("main.verify_ft_with_ensemble", return_value=out):
+            response = client.post(
+                "/gerar-apenas-ft",
+                json={"descricao": "Circuito RC série com saída no capacitor"},
+            )
+
+        data = response.json()
+        assert data["verificacao_ensemble_executada"] is True
+        assert data["verificacao_ensemble_ok"] is True
+        assert data["ensemble_concordancia"] == "2/2"
+
+    @pytest.mark.api
+    def test_gerar_ft_com_ensemble_discordando_nao_bloqueia_resposta(self, client, mock_llm_ft):
+        """Discordância do ensemble fica sinalizada, mas a resposta principal continua 200."""
+        from ensemble_service import EnsembleVerificationOutcome
+
+        out = EnsembleVerificationOutcome(
+            executado=True,
+            ok=False,
+            concordancia="1/2",
+            consenso_ft="G(s) = 1 / (RCs + 2)",
+            mensagem="ensemble: a FT gerada não é equivalente ao consenso entre provedores (...).",
+        )
+        with patch("main.verify_ft_with_ensemble", return_value=out):
+            response = client.post(
+                "/gerar-apenas-ft",
+                json={"descricao": "Circuito RC série com saída no capacitor"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["verificacao_ensemble_ok"] is False
+        assert data["mensagem_verificacao_ensemble"] is not None
+
+    @pytest.mark.api
+    def test_gerar_ft_ensemble_desabilitado_nao_chama_verificador(self, client, mock_llm_ft):
+        """Com ENSEMBLE_ENABLED=false, nem tenta rodar o ensemble."""
+        with patch("main.settings.ensemble_enabled", False), patch(
+            "main.verify_ft_with_ensemble"
+        ) as mock_verify:
+            response = client.post(
+                "/gerar-apenas-ft",
+                json={"descricao": "Circuito RC série com saída no capacitor"},
+            )
+
+        mock_verify.assert_not_called()
+        data = response.json()
+        assert data["verificacao_ensemble_executada"] is False
+
+
+# ============================================================================
+# TESTES: Endpoint /gerar-apenas-ft-ensemble
+# ============================================================================
+
+class TestEndpointEnsembleFT:
+    """Testes para o endpoint de consenso entre provedores de LLM."""
+
+    @pytest.mark.api
+    def test_ensemble_consenso_alcancado(self, client):
+        """Deve devolver o consenso quando o orquestrador encontra maioria."""
+        from ensemble_service import EnsembleOutcome, ProviderResponse
+
+        outcome = EnsembleOutcome(
+            executado=True,
+            respostas=[
+                ProviderResponse("google", "gemini-2.5-flash", True, "G(s) = 1 / (RCs + 1)"),
+                ProviderResponse("openai", "gpt-4o-mini", True, "G(s) = 1 / (1 + RCs)"),
+            ],
+            consenso_ft="G(s) = 1 / (RCs + 1)",
+            concordancia="2/2",
+        )
+        with patch("main.run_ensemble_ft", return_value=outcome):
+            response = client.post(
+                "/gerar-apenas-ft-ensemble",
+                json={"descricao": "Circuito RC série com saída no capacitor"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["ensemble_executado"] is True
+        assert data["concordancia"] == "2/2"
+        assert len(data["respostas"]) == 2
+
+    @pytest.mark.api
+    def test_ensemble_nao_executado_com_menos_de_dois_provedores(self, client):
+        """Deve sinalizar ensemble_executado=false sem provedores suficientes."""
+        from ensemble_service import EnsembleOutcome
+
+        outcome = EnsembleOutcome(
+            executado=False,
+            mensagem="Ensemble não executado: são necessários pelo menos 2 provedores.",
+        )
+        with patch("main.run_ensemble_ft", return_value=outcome):
+            response = client.post(
+                "/gerar-apenas-ft-ensemble",
+                json={"descricao": "Circuito RC série com saída no capacitor"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["ensemble_executado"] is False
+        assert data["consenso_ft"] is None
+
+    @pytest.mark.api
+    def test_ensemble_descricao_curta_rejeitada(self, client):
+        """Deve validar a descrição igual aos outros endpoints de modelagem."""
+        response = client.post("/gerar-apenas-ft-ensemble", json={"descricao": "RC"})
+        assert response.status_code == 422
 
 
 # ============================================================================
@@ -274,6 +397,23 @@ class TestEndpointAnaliseCompleta:
         assert data["verificacao_ft_ok"] is True
         assert data["nova_tentativa_pos_verificacao"] is False
         mock_llm_analise.generate.assert_called_once()
+
+    @pytest.mark.api
+    @patch("main.execute_diagram_python")
+    def test_analise_completa_expoe_campos_de_ensemble(self, mock_exec, client, mock_llm_analise):
+        """Deve expor os campos de verificação por ensemble mesmo sem provedores extras configurados."""
+        mock_exec.return_value = self._mock_exec_result()
+        response = client.post(
+            "/gerar-analise-completa",
+            json={"descricao": "Circuito RC série com saída no capacitor"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "verificacao_ensemble_executada" in data
+        assert "verificacao_ensemble_ok" in data
+        assert data["verificacao_ensemble_executada"] is False  # só o Google configurado no teste
+        assert data["verificacao_ensemble_ok"] is True
 
     @pytest.mark.api
     @patch("main.execute_diagram_python")
