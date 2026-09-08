@@ -30,7 +30,7 @@ from ft_verification import parse_transfer_function_expr, rationals_equivalent_s
 
 
 # -----------------------------------------------------------------------------
-# Estrutura do grafo (o que o LLM precisaria emitir)
+# Estrutura do grafo (o que o LLM emite em "grafo_diagrama")
 # -----------------------------------------------------------------------------
 
 

@@ -1,5 +1,5 @@
 """
-Testes do protótipo de validação por grafos (Fórmula de Ganho de Mason).
+Testes da validação por grafos (Fórmula de Ganho de Mason).
 
 Cada teste de redução compara o resultado de `mason_reduce` com a fórmula clássica
 conhecida do circuito equivalente, verificando `sympy.simplify(obtido - esperado) == 0`
