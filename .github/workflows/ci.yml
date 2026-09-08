@@ -121,18 +121,20 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
       
+      # load: true coloca a imagem no daemon local. Sem isso, o Buildx
+      # deixa o resultado só no builder e `docker images` não a encontra.
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: false
+          load: true
           tags: tcc-api-modelagem:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
       - name: Verificar imagem
-        run: |
-          docker images | grep tcc-api-modelagem
+        run: docker image inspect "tcc-api-modelagem:${{ github.sha }}"
 
   # ===========================================================================
   # Job: Verificação de Segurança
