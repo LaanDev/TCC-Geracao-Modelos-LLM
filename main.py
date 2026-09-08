@@ -5,6 +5,7 @@ Trabalho de Conclusão de Curso - Engenharia de Controle e Automação.
 Autor: Laan Carlos Nunes Mendes de Barros
 """
 
+import base64
 import logging
 from contextlib import asynccontextmanager
 from functools import wraps
@@ -40,7 +41,8 @@ from prompts import (
     formatar_prompt_correcao_diagrama_por_ft,
 )
 from llm_service import get_llm_service, LLMError, LLMParseError
-from diagram_executor import DiagramExecResult, execute_diagram_python
+from diagram_executor import DiagramExecResult, execute_diagram_python, save_diagram_pngs_to_disk
+from diagram_renderer import render_diagram_graph
 from ft_verification import (
     FTVerificationOutcome,
     merge_outcomes_ft_e_diagrama,
@@ -270,6 +272,32 @@ def _attach_graph_verification(payload: dict[str, Any], funcao_transferencia: st
     payload["mensagem_verificacao_grafo"] = None if out.ok else "; ".join(out.problemas)
 
 
+def _attach_rendered_graph_diagram(payload: dict[str, Any], handler_name: str) -> None:
+    """
+    Renderiza deterministicamente (matplotlib, sem depender do LLM) o "grafo_diagrama" já
+    validado por `_attach_graph_verification`, e acrescenta o PNG resultante às imagens da
+    resposta — ao lado do diagrama que o LLM desenhou, nunca no lugar dele. Falha de
+    renderização (grafo malformado, etc.) nunca bloqueia a resposta, só é ignorada.
+    """
+    grafo_data = payload.get("grafo_diagrama")
+    if not settings.graph_render_enabled or not grafo_data:
+        return
+
+    try:
+        graph = DiagramGraph(**grafo_data)
+        png_bytes = render_diagram_graph(graph)
+    except Exception as exc:  # noqa: BLE001 — domínio: estrutura arbitrária vinda do LLM
+        logger.warning("Falha ao renderizar grafo deterministicamente: %s", exc)
+        return
+
+    prefix = _DIAGRAM_SAVE_PREFIX.get(handler_name, "diagrama") + "_grafo"
+    saved = save_diagram_pngs_to_disk([png_bytes], prefix)
+    b64 = base64.standard_b64encode(png_bytes).decode("ascii")
+
+    payload.setdefault("diagramas_png_base64", []).append(b64)
+    payload.setdefault("diagramas_arquivos", []).extend(saved)
+
+
 def _attach_ensemble_verification(payload: dict[str, Any], descricao: str) -> None:
     """
     Cruza a FT já obtida (tipicamente do Google) com o consenso entre os provedores de
@@ -445,6 +473,7 @@ def api_gerar_diagrama_por_ft(request: FuncaoTransferenciaRequest):
         )
     _attach_graph_verification(payload, request.funcao_transferencia)
     _execute_diagram_on_payload(payload, "gerar-diagrama-por-ft")
+    _attach_rendered_graph_diagram(payload, "gerar-diagrama-por-ft")
     return payload
 
 
@@ -493,6 +522,7 @@ def api_gerar_ft_e_diagrama(request: ProblemaRequest):
         )
     _attach_graph_verification(payload, payload["funcao_transferencia"])
     _execute_diagram_on_payload(payload, "gerar-ft-e-diagrama")
+    _attach_rendered_graph_diagram(payload, "gerar-ft-e-diagrama")
     return payload
 
 
@@ -534,6 +564,7 @@ def api_gerar_analise_completa(request: ProblemaRequest):
     _attach_ensemble_verification(payload, request.descricao)
     if payload.get("codigo_diagrama"):
         _execute_diagram_on_payload(payload, "gerar-analise-completa")
+    _attach_rendered_graph_diagram(payload, "gerar-analise-completa")
     return payload
 
 

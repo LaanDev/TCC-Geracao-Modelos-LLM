@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     # silenciosamente (não bloqueia a resposta), então é seguro deixar ligada por padrão.
     graph_validation_enabled: bool = True
 
+    # Renderização determinística do diagrama (matplotlib) a partir do "grafo_diagrama"
+    # já validado — não depende do LLM escrever o código de desenho. Roda em paralelo ao
+    # diagrama que o LLM gera (não substitui), então a resposta traz os dois.
+    graph_render_enabled: bool = True
+
     # Ensemble entre provedores de LLM diferentes (Google + Anthropic + Groq + OpenAI): cada
     # provedor configurado (chave de API presente) responde à mesma pergunta em paralelo,
     # e o consenso é decidido por equivalência simbólica (SymPy) entre as FTs — não por

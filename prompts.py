@@ -645,7 +645,8 @@ PROMPT_CONFIG = {
     # Endpoints com código de diagrama + grafo_diagrama no mesmo JSON aproximam-se do teto
     # antigo (8192) e produzem string JSON truncada ("unterminated string"). 16384 corrigiu a
     # truncagem, mas pareceu aumentar a taxa de timeout do lado do servidor (504
-    # DEADLINE_EXCEEDED) — 12288 é o meio-termo em avaliação.
+    # DEADLINE_EXCEEDED) — 12288 é o meio-termo, confirmado sem timeout nem truncagem nas
+    # rodadas de teste subsequentes (ver Cap. 3/4 do TCC).
     "max_output_tokens": 12288,
 }
 

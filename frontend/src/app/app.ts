@@ -61,6 +61,26 @@ export class App {
     return typeof msg === 'string' ? msg : null;
   });
 
+  // Consenso entre provedores de LLM (Google/Anthropic/Groq) via equivalência simbólica.
+  protected readonly verificacaoEnsembleExecutada = computed(
+    () => this.resultado()?.['verificacao_ensemble_executada'] === true
+  );
+  protected readonly verificacaoEnsembleOk = computed(
+    () => this.resultado()?.['verificacao_ensemble_ok'] === true
+  );
+  protected readonly mensagemVerificacaoEnsemble = computed<string | null>(() => {
+    const msg = this.resultado()?.['mensagem_verificacao_ensemble'];
+    return typeof msg === 'string' ? msg : null;
+  });
+  protected readonly ensembleConcordancia = computed<string | null>(() => {
+    const val = this.resultado()?.['ensemble_concordancia'];
+    return typeof val === 'string' ? val : null;
+  });
+  protected readonly ensembleConsensoFt = computed<string | null>(() => {
+    const val = this.resultado()?.['ensemble_consenso_ft'];
+    return typeof val === 'string' ? val : null;
+  });
+
   // JSON do resultado para exibição, com a lista de imagens (potencialmente enorme) resumida,
   // já que as imagens em si aparecem como <img> logo acima.
   protected readonly resultadoJson = computed(() => {

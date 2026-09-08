@@ -164,9 +164,15 @@
   background: rgba(248, 81, 73, 0.12);
 }
 
-.mensagem-grafo {
+.mensagem-verificacao {
   font-size: 0.85rem;
   color: var(--error);
+  margin: -0.5rem 0 1rem;
+}
+
+.ensemble-detalhe {
+  font-size: 0.85rem;
+  color: var(--text-muted);
   margin: -0.5rem 0 1rem;
 }
 

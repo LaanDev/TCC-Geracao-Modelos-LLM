@@ -72,12 +72,31 @@
               </h3>
               <app-grafo-diagrama [grafo]="grafoDiagrama()" />
               @if (mensagemVerificacaoGrafo(); as msg) {
-                <p class="mensagem-grafo">{{ msg }}</p>
+                <p class="mensagem-verificacao">{{ msg }}</p>
               }
               <details class="grafo-json-details">
                 <summary>JSON do grafo (nós e arestas)</summary>
                 <pre class="json">{{ grafoDiagramaJson() }}</pre>
               </details>
+            }
+            @if (verificacaoEnsembleExecutada()) {
+              <h3>
+                Consenso entre provedores (Ensemble)
+                @if (verificacaoEnsembleOk()) {
+                  <span class="selo selo-ok">✓ concorda com o consenso</span>
+                } @else {
+                  <span class="selo selo-erro">✗ diverge do consenso</span>
+                }
+              </h3>
+              @if (ensembleConcordancia(); as concordancia) {
+                <p class="ensemble-detalhe">Concordância entre provedores: {{ concordancia }}</p>
+              }
+              @if (ensembleConsensoFt(); as consenso) {
+                <p class="ensemble-detalhe">FT de consenso: <code>{{ consenso }}</code></p>
+              }
+              @if (mensagemVerificacaoEnsemble(); as msg) {
+                <p class="mensagem-verificacao">{{ msg }}</p>
+              }
             }
             <h3>Resultado</h3>
             <pre class="json">{{ resultadoJson() }}</pre>

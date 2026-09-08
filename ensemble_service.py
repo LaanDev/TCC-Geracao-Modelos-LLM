@@ -71,7 +71,7 @@ def _call_google(prompt: str) -> str:
     ft = payload.get("funcao_transferencia")
     return ft if isinstance(ft, str) and ft.strip() else str(payload)
 
-
+# openai ainda nao esta funcionando, sem chave de API
 def _call_openai(prompt: str) -> str:
     from openai import OpenAI
 
@@ -127,11 +127,7 @@ def _call_groq(prompt: str) -> str:
 # (disponível?, função de chamada, modelo configurado) por provedor.
 _PROVIDERS: dict[str, tuple[Callable[[], bool], Callable[[str], str], Callable[[], str]]] = {
     "google": (lambda: bool(settings.google_api_key), _call_google, lambda: settings.llm_model),
-    "anthropic": (
-        lambda: bool(settings.anthropic_api_key),
-        _call_anthropic,
-        lambda: settings.anthropic_model,
-    ),
+    "anthropic": (lambda: bool(settings.anthropic_api_key), _call_anthropic,lambda: settings.anthropic_model),
     "groq": (lambda: bool(settings.groq_api_key), _call_groq, lambda: settings.groq_model),
     "openai": (lambda: bool(settings.openai_api_key), _call_openai, lambda: settings.openai_model),
 }
