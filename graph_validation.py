@@ -23,7 +23,12 @@ import sympy
 from pydantic import BaseModel, Field
 from sympy import Expr, simplify
 
-from ft_verification import parse_transfer_function_expr, rationals_equivalent_safe
+from ft_verification import (
+    parse_transfer_function_expr,
+    rationals_equivalent_safe,
+    rotulo_e_malha_direta,
+    simbolo_da_ft_declarada,
+)
 
 
 # -----------------------------------------------------------------------------
@@ -278,6 +283,87 @@ def mason_reduce(graph: DiagramGraph) -> Expr:
 # -----------------------------------------------------------------------------
 
 
+def _arestas_de_retorno(graph: DiagramGraph) -> list[GraphEdge]:
+    """
+    Arestas que entram num somador vindas de outro nó que não a entrada.
+
+    No diagrama clássico isso é o ramo de realimentação (H(s) ou retorno unitário).
+    A aresta da referência até o somador permanece: ela é o caminho direto.
+    """
+    nodes = _node_by_id(graph)
+    entrada = _single_node_of_type(graph, "entrada")
+    return [
+        e
+        for e in graph.arestas
+        if nodes[e.destino].tipo == "somador" and e.origem != entrada.id
+    ]
+
+
+def _grafo_sem_realimentacao(graph: DiagramGraph) -> DiagramGraph:
+    """Cópia do grafo só com a malha direta (retornos ao somador removidos)."""
+    retornos = {(e.origem, e.destino, e.sinal) for e in _arestas_de_retorno(graph)}
+    return DiagramGraph(
+        nos=list(graph.nos),
+        arestas=[
+            e for e in graph.arestas if (e.origem, e.destino, e.sinal) not in retornos
+        ],
+    )
+
+
+def _ganho_malha_direta(graph: DiagramGraph) -> Optional[Expr]:
+    """Redução de Mason sem as arestas de retorno. None se o grafo não tem laço."""
+    if not _arestas_de_retorno(graph):
+        return None
+    try:
+        return mason_reduce(_grafo_sem_realimentacao(graph))
+    except GraphValidationError:
+        return None
+
+
+def _problemas_rotulo_malha(
+    graph: DiagramGraph,
+    ft_declarada_texto: str,
+    ft_declarada: Expr,
+    ft_grafo: Expr,
+) -> list[str]:
+    """
+    Confusão G(s) × T(s): a álgebra da malha fechada pode estar certa e ainda assim
+    vir rotulada como malha direta, ou o bloco direto já carrega T(s) e o laço
+    aplica a realimentação outra vez.
+    """
+    direta = _ganho_malha_direta(graph)
+    if direta is None:
+        return []
+
+    try:
+        simbolo = simbolo_da_ft_declarada(ft_declarada_texto)
+    except Exception:  # noqa: BLE001 — o parse da FT já foi validado pelo chamador
+        simbolo = None
+
+    problemas: list[str] = []
+    fechada_bate = rationals_equivalent_safe(ft_grafo, ft_declarada)
+    direta_bate = rationals_equivalent_safe(direta, ft_declarada)
+
+    if fechada_bate and rotulo_e_malha_direta(simbolo):
+        problemas.append(
+            "rotulo: a expressão equivale à malha fechada do grafo "
+            "(a realimentação já está no denominador), mas foi rotulada como G(s), "
+            "símbolo da malha direta. Use T(s) ou M(s). Tratar esse polinômio como "
+            "planta e chamar feedback() aplica a realimentação uma segunda vez."
+        )
+
+    if direta_bate and not fechada_bate:
+        problemas.append(
+            "realimentacao_duplicada: a FT declarada coincide com o ganho da malha "
+            f"direta ({direta}), mas o grafo ainda fecha o laço e Mason produz "
+            f"{ft_grafo}. A relação entrada-saída do diagrama é a malha fechada, não "
+            "o ganho do bloco. Se esse ganho já for o polinômio com realimentação no "
+            "denominador, o laço aplica feedback outra vez — o bloco deve conter só "
+            "G(s) ou H(s)."
+        )
+    return problemas
+
+
 def verify_diagram_graph(
     graph: DiagramGraph, funcao_transferencia_declarada: str
 ) -> GraphVerificationOutcome:
@@ -296,14 +382,21 @@ def verify_diagram_graph(
             ft_derivada_grafo=str(ft_grafo),
         )
 
-    if rationals_equivalent_safe(ft_grafo, ft_declarada):
+    problemas = _problemas_rotulo_malha(
+        graph, funcao_transferencia_declarada, ft_declarada, ft_grafo
+    )
+    if rationals_equivalent_safe(ft_grafo, ft_declarada) and not problemas:
         return GraphVerificationOutcome(ok=True, ft_derivada_grafo=str(ft_grafo))
+
+    if not any(p.startswith("realimentacao_duplicada:") for p in problemas):
+        if not rationals_equivalent_safe(ft_grafo, ft_declarada):
+            problemas.append(
+                "grafo: a FT reduzida do diagrama (Mason) não é equivalente à FT declarada "
+                f"— grafo produz {ft_grafo}, declarado foi {ft_declarada}."
+            )
 
     return GraphVerificationOutcome(
         ok=False,
-        problemas=[
-            "grafo: a FT reduzida do diagrama (Mason) não é equivalente à FT declarada "
-            f"— grafo produz {ft_grafo}, declarado foi {ft_declarada}."
-        ],
+        problemas=problemas,
         ft_derivada_grafo=str(ft_grafo),
     )

@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ft_verification import (
     parse_transfer_function_expr,
+    simbolo_da_ft_declarada,
     verify_transfer_function,
 )
 
@@ -114,6 +115,7 @@ class TestExtracaoFtEmTextoVerboso:
         expr = parse_transfer_function_expr(ft)
         s, K, H = symbols("s K H")
         assert simplify(expr - K / (s**2 + 3 * s + (2 + K * H))) == 0
+        assert simbolo_da_ft_declarada(ft) == "T"
 
     def test_subscrito_g_mf_de_malha_fechada_e_reconhecido(self):
         """

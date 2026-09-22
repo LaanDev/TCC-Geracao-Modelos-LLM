@@ -234,6 +234,65 @@ def test_ganho_nao_parseavel_reporta_erro():
     assert any("não parseável" in p for p in out.problemas)
 
 
+def _malha_unitaria(ganho_bloco: str) -> DiagramGraph:
+    """entrada → somador → bloco → saída, com retorno unitário negativo."""
+    return DiagramGraph(
+        nos=[
+            GraphNode(id="u", tipo="entrada"),
+            GraphNode(id="soma", tipo="somador"),
+            GraphNode(id="g", tipo="bloco", ganho=ganho_bloco),
+            GraphNode(id="y", tipo="saida"),
+        ],
+        arestas=[
+            GraphEdge(origem="u", destino="soma", sinal="+"),
+            GraphEdge(origem="soma", destino="g", sinal="+"),
+            GraphEdge(origem="g", destino="y", sinal="+"),
+            GraphEdge(origem="y", destino="soma", sinal="-"),
+        ],
+    )
+
+
+@pytest.mark.unit
+def test_malha_fechada_rotulada_como_g_e_reprovada():
+    """
+    Planta 1/(s+1) com realimentação unitária reduz a 1/(s+2). A álgebra está
+    certa, mas o rótulo G(s) é o da malha direta: feedback() em cima desse
+    polinômio aplicaria a realimentação de novo.
+    """
+    graph = _malha_unitaria("1/(s+1)")
+    out = verify_diagram_graph(graph, "G(s) = 1/(s+2)")
+    assert out.ok is False
+    assert any(p.startswith("rotulo:") for p in out.problemas)
+
+
+@pytest.mark.unit
+def test_malha_fechada_rotulada_como_t_passa():
+    graph = _malha_unitaria("1/(s+1)")
+    out = verify_diagram_graph(graph, "T(s) = 1/(s+2)")
+    assert out.ok is True
+    assert out.problemas == []
+
+
+@pytest.mark.unit
+def test_malha_fechada_rotulada_como_m_passa():
+    graph = _malha_unitaria("1/(s+1)")
+    out = verify_diagram_graph(graph, "M(s) = 1/(s+2)")
+    assert out.ok is True
+
+
+@pytest.mark.unit
+def test_bloco_que_ja_e_malha_fechada_com_laco_e_feedback_duplicado():
+    """
+    O bloco guarda 1/(s+2), que já é a malha fechada de 1/(s+1), e o grafo
+    ainda desenha o retorno. Mason aplica o laço outra vez e produz 1/(s+3).
+    """
+    graph = _malha_unitaria("1/(s+2)")
+    out = verify_diagram_graph(graph, "G(s) = 1/(s+2)")
+    assert out.ok is False
+    assert any(p.startswith("realimentacao_duplicada:") for p in out.problemas)
+    assert not any("não é equivalente" in p for p in out.problemas)
+
+
 @pytest.mark.unit
 def test_quantidade_errada_de_entradas_ou_saidas():
     graph_sem_saida = DiagramGraph(

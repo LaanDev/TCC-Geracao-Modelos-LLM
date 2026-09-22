@@ -70,6 +70,8 @@ class TestPromptAnaliseCompleta:
         assert "Padronização OBRIGATÓRIA de \"funcao_transferencia\"" in PROMPT_ANALISE_COMPLETA
         assert "G(s) = 1/(M*s**2 + K)" in PROMPT_ANALISE_COMPLETA
         assert '"funcao_transferencia": "G(s) = 1/(R*C*s + 1)"' in PROMPT_ANALISE_COMPLETA
+        assert "Não rotule essa expressão reduzida como G(s)" in PROMPT_ANALISE_COMPLETA
+        assert "T(s) = 1/(s+2)" in PROMPT_ANALISE_COMPLETA
 
 
 class TestFormatarPromptAnalise:

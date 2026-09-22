@@ -33,7 +33,8 @@ def normalize_descricao(text: str) -> str:
     return " ".join(_strip_accents(text).lower().split())
 
 
-_GS_ASSIGN = re.compile(r"(?:[Gg]|T)(?:_\w+)?\s*\(\s*s\s*\)\s*=")
+# G/T/M, com subscrito opcional (G_mf, T_cl). M(s) é sinônimo usual de T(s).
+_GS_ASSIGN = re.compile(r"([GgTtMm](?:_\w+)?)\s*\(\s*s\s*\)\s*=")
 _STATEMENT_BOUNDARY = re.compile(r"[\n\r]|(?<=[a-zA-Z0-9\)\]])\.\s")
 
 
@@ -60,34 +61,38 @@ def _statement_rhs(tail: str) -> Optional[str]:
     return _clean_math_unicode(rhs) if rhs else None
 
 
-def _candidate_rhs_list(ft_raw: str) -> list[str]:
+def _candidate_assignments(ft_raw: str) -> list[tuple[Optional[str], str]]:
     """
-    Gera candidatos a lado-direito de 'G(s) = ...', na ordem em que aparecem no texto.
+    Candidatos (símbolo, lado-direito) de 'G(s) = ...' / 'T(s) = ...' / 'M(s) = ...',
+    na ordem em que aparecem no texto.
 
     Modelos mais verbosos costumam reapresentar a FT várias vezes ('G(s) = Vc(s)/Vin(s)'
     como definição provisória, uma forma "padrão" genérica de comparação, e só então a
     expressão final/reduzida) — às vezes na mesma sentença encadeada ('G(s) = razão =
-    expressão'), às vezes em declarações 'G(s) = ...' totalmente separadas mais adiante
-    no texto. `parse_transfer_function_expr` tenta estes candidatos do ÚLTIMO para o
-    PRIMEIRO, porque a forma final/mais reduzida tende a vir por último.
+    expressão'), às vezes em declarações totalmente separadas mais adiante no texto.
+    `parse_transfer_function_expr` tenta estes candidatos do ÚLTIMO para o PRIMEIRO,
+    porque a forma final/mais reduzida tende a vir por último.
+
+    O símbolo é o nome à esquerda (`G`, `T`, `G_mf`, ...). No fallback sem atribuição
+    nomeada, o símbolo fica None.
     """
     s = ft_raw.strip()
     matches = list(_GS_ASSIGN.finditer(s))
-    candidates: list[str] = []
+    candidates: list[tuple[Optional[str], str]] = []
     for m in matches:
         rhs = _statement_rhs(s[m.end() :])
         if rhs:
-            candidates.append(rhs)
+            candidates.append((m.group(1), rhs))
     if candidates:
         return candidates
 
-    # Fallback leniente: nenhum "G(s) =" literal — aceita o primeiro '=' genérico,
-    # caso o modelo nomeie a razão de outra forma (ex.: "Y(s)/U(s) = ...").
+    # Fallback leniente: nenhum "G(s) =" / "T(s) =" literal — aceita o primeiro '='
+    # genérico, caso o modelo nomeie a razão de outra forma (ex.: "Y(s)/U(s) = ...").
     generic = re.search(r"=\s*", s)
     if generic:
         rhs = _statement_rhs(s[generic.end() :])
         if rhs:
-            candidates.append(rhs)
+            candidates.append((None, rhs))
     return candidates
 
 
@@ -145,26 +150,24 @@ def _has_generic_substitution_symbol(expr: Expr) -> bool:
     return bool(names & _GENERIC_SUBSTITUTION_ONLY_SYMBOLS)
 
 
-def parse_transfer_function_expr(ft_string: str) -> Expr:
+def _parse_selected(ft_string: str) -> tuple[Expr, Optional[str]]:
     """
-    Converte 'G(s) = ...' em expressão SymPy (variável simbólica s + demais identificadores).
+    Lê a expressão final e o símbolo com que ela foi atribuída.
 
-    Quando o texto contém mais de uma declaração 'G(s) = ...', tenta a última primeiro
-    (ver `_candidate_rhs_list`) e recua para as anteriores se a mais recente não fizer
-    parse, se só usar símbolos de "forma padrão" genérica (`_looks_like_generic_template`),
-    ou se usar τ/ωn/ζ/ω mesmo misturado com parâmetros físicos reais
-    (`_has_generic_substitution_symbol`, ex. "R_th/(τs+1)" com τ=R_th·C_th definido só em
-    prosa) — assim nem uma definição provisória mal-formada ('G(s) = Vc(s)/Vin(s):') nem
-    uma citação didática da forma padrão genérica impedem a leitura da expressão
-    específica do problema.
+    Quando o texto contém mais de uma declaração, tenta a última primeiro
+    (ver `_candidate_assignments`) e recua para as anteriores se a mais recente não
+    fizer parse, se só usar símbolos de "forma padrão" genérica
+    (`_looks_like_generic_template`), ou se usar τ/ωn/ζ/ω mesmo misturado com
+    parâmetros físicos reais (`_has_generic_substitution_symbol`, ex. "R_th/(τs+1)"
+    com τ=R_th·C_th definido só em prosa).
     """
-    candidates = _candidate_rhs_list(ft_string)
+    candidates = _candidate_assignments(ft_string)
     if not candidates:
-        raise ValueError("FT sem '=' explícito (esperado 'G(s) = ...').")
+        raise ValueError("FT sem '=' explícito (esperado 'G(s) = ...' ou 'T(s) = ...').")
 
     last_error: Optional[Exception] = None
-    generic_fallback: Optional[Expr] = None
-    for rhs in reversed(candidates):
+    generic_fallback: Optional[tuple[Expr, Optional[str]]] = None
+    for symbol, rhs in reversed(candidates):
         try:
             parsed = simplify(
                 parse_expr(rhs, transformations=Transformations, local_dict=_local_dict_for_rhs(rhs))
@@ -174,13 +177,36 @@ def parse_transfer_function_expr(ft_string: str) -> Expr:
             continue
         if _looks_like_generic_template(parsed) or _has_generic_substitution_symbol(parsed):
             if generic_fallback is None:
-                generic_fallback = parsed
+                generic_fallback = (parsed, symbol)
             continue
-        return parsed
+        return parsed, symbol
 
     if generic_fallback is not None:
         return generic_fallback
-    raise ValueError(f"Nenhuma expressão de G(s) pôde ser interpretada: {last_error}")
+    raise ValueError(f"Nenhuma expressão de G(s)/T(s) pôde ser interpretada: {last_error}")
+
+
+def parse_transfer_function_expr(ft_string: str) -> Expr:
+    """Converte 'G(s) = ...' ou 'T(s) = ...' em expressão SymPy."""
+    expr, _symbol = _parse_selected(ft_string)
+    return expr
+
+
+def simbolo_da_ft_declarada(ft_string: str) -> Optional[str]:
+    """
+    Símbolo da atribuição efetivamente lida: 'G', 'T', 'M', 'G_mf', ...
+
+    None quando a expressão só foi achada pelo fallback de '=' genérico.
+    'G' sem subscrito é a convenção de malha direta; 'T'/'M' (e G com subscrito,
+    como G_mf) nomeiam a malha fechada.
+    """
+    _expr, symbol = _parse_selected(ft_string)
+    return symbol
+
+
+def rotulo_e_malha_direta(symbol: Optional[str]) -> bool:
+    """True só para G(s) puro — o nome da malha direta, sem subscrito de malha fechada."""
+    return symbol is not None and symbol.lower() == "g"
 
 
 def deg_den_in_s(expr: Expr) -> int:
