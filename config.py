@@ -30,9 +30,8 @@ class Settings(BaseSettings):
     diagram_save_to_disk: bool = True
     diagram_output_dir: str = "diagrams"
 
-    # Verificação pós-LLM (SymPy + gabaritos canônicos) e retry curtíssimo
+    # Verificação pós-LLM (SymPy + gabaritos canônicos)
     ft_verification_enabled: bool = True
-    ft_verification_retry_llm: bool = True
 
     # Validação estrutural do diagrama por grafo (Fórmula de Ganho de Mason).
     # Roda só quando o LLM emite "grafo_diagrama"; se ausente/malformado, é ignorada
@@ -44,11 +43,9 @@ class Settings(BaseSettings):
     # diagrama que o LLM gera (não substitui), então a resposta traz os dois.
     graph_render_enabled: bool = True
 
-    # Ensemble entre provedores de LLM diferentes (Google + Anthropic + Groq + OpenAI): cada
-    # provedor configurado (chave de API presente) responde à mesma pergunta em paralelo,
-    # e o consenso é decidido por equivalência simbólica (SymPy) entre as FTs — não por
-    # comparação de string. Provedores sem chave configurada são simplesmente pulados;
-    # o ensemble só roda de fato com pelo menos 2 provedores disponíveis.
+    # Ensemble: cada provedor gera a análise completa em paralelo; o voto (equivalência
+    # simbólica da FT) escolhe qual resposta a API devolve. Sem pelo menos 2 chaves,
+    # usa só o provedor disponível (em geral o Google).
     ensemble_enabled: bool = True
     ensemble_timeout: int = 60
     openai_api_key: Optional[str] = None

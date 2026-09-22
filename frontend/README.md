@@ -29,8 +29,7 @@ O frontend abre em **http://localhost:3000**.
 ### 3. Usar a aplicação
 
 - **Descrição do sistema:** digite ou edite o texto (ex.: circuito RC, massa-mola, etc.).
-- **Gerar apenas FT:** retorna só a função de transferência.
-- **Análise completa:** retorna lei aplicada, EDO, passos de Laplace, FT e código Python.
+- **Resolver:** envia a descrição para a análise completa. Os LLMs configurados votam; a resposta mais votada aparece na tela (lei, EDO, Laplace, FT, diagrama e grafo).
 
 A função de transferência aparece em destaque, seguida do diagrama de blocos, do grafo
 estruturado (quando houver) e do JSON completo do resultado.
@@ -58,7 +57,7 @@ frontend/
 ## Proxy da API
 
 Em `proxy.conf.json`, as chamadas a **`/api`** são redirecionadas para **`http://127.0.0.1:8000`**.
-Assim, o frontend usa `HttpClient` apontando para `/api/gerar-apenas-ft`, e o Angular CLI (`ng serve --proxy-config proxy.conf.json`, já configurado no script `npm start`) encaminha a requisição para a API.
+Assim, o frontend usa `HttpClient` apontando para `/api/gerar-analise-completa`, e o Angular CLI (`ng serve --proxy-config proxy.conf.json`, já configurado no script `npm start`) encaminha a requisição para a API.
 
 ## Scripts
 

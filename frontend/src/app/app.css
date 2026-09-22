@@ -98,11 +98,6 @@
   color: var(--bg);
 }
 
-.btn-secondary {
-  background: var(--success);
-  color: var(--bg);
-}
-
 .result-card {
   min-height: 120px;
 }

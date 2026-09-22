@@ -26,16 +26,14 @@ Você verá a interface Swagger com todos os endpoints disponíveis.
 
 ### 1.2 Explorar os Endpoints
 
-A API tem **3 endpoints principais**:
+A API tem **2 rotas**:
 
 1. **`GET /`** - Health check (verifica se a API está online)
-2. **`POST /gerar-apenas-ft`** - Gera apenas a função de transferência
-3. **`POST /gerar-analise-completa`** - Análise completa com explicação didática
-4. **`POST /validar-minha-resposta`** - Valida resposta do aluno (modo tutor)
+2. **`POST /gerar-analise-completa`** - Análise completa (ensemble escolhe a resposta)
 
 ### 1.3 Testar um Endpoint
 
-1. Clique em **`POST /gerar-apenas-ft`**
+1. Clique em **`POST /gerar-analise-completa`**
 2. Clique em **"Try it out"**
 3. No campo `descricao`, cole este exemplo:
    ```
@@ -44,7 +42,7 @@ A API tem **3 endpoints principais**:
    Encontre G(s) = Vc(s)/Vin(s).
    ```
 4. Clique em **"Execute"**
-5. Veja a resposta com a função de transferência!
+5. Veja a resposta completa (lei, EDO, Laplace, FT, grafo).
 
 ---
 
@@ -96,23 +94,9 @@ O endpoint `/gerar-analise-completa` retorna:
 
 ---
 
-## 🎓 Passo 4: Testar o Modo Tutor
+## 🎓 Passo 4: Ensemble
 
-O endpoint `/validar-minha-resposta` funciona como um tutor:
-
-1. Você envia:
-   - Descrição do problema
-   - Sua função de transferência calculada
-
-2. A IA retorna:
-   - Se está correto ou não
-   - Feedback construtivo
-   - Solução correta
-
-**Exemplo de teste:**
-- **Descrição:** "Circuito RC série, saída no capacitor"
-- **Sua resposta:** "G(s) = 1 / (RCs + 1)"
-- Veja o feedback da IA!
+Com duas ou mais chaves no `.env` (Google + Anthropic/Groq/OpenAI), a análise completa é gerada em paralelo e o voto escolhe a resposta mostrada. Com só o Google, a ferramenta ainda funciona — sem voto.
 
 ---
 
@@ -171,14 +155,14 @@ Isso executa todos os testes automatizados.
 
 ## 🎨 Passo 8: Próxima Fase do TCC - Frontend
 
-O frontend React já está na pasta **`frontend/`**.
+O frontend Angular já está na pasta **`frontend/`**.
 
 ### 8.1 Rodar o Frontend
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm start
 ```
 
 Acesse http://localhost:3000. A API deve estar rodando em outro terminal (`python main.py`).
@@ -236,9 +220,8 @@ Agora que o sistema está funcionando, você pode:
 ## 🎯 Checklist de Próximos Passos
 
 - [ ] Explorar http://127.0.0.1:8000/docs
-- [ ] Testar endpoint `/gerar-apenas-ft` com problema RC
+- [ ] Testar endpoint `/gerar-analise-completa` com problema RC
 - [ ] Testar endpoint `/gerar-analise-completa` com problema massa-mola
-- [ ] Testar endpoint `/validar-minha-resposta` como tutor
 - [ ] Executar código Python gerado e ver gráfico
 - [ ] Explorar código fonte (`main.py`, `prompts.py`, etc.)
 - [ ] Executar testes: `pytest tests/ -v`

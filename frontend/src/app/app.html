@@ -1,7 +1,7 @@
 <div class="app">
   <header class="header">
     <h1>TCC – Modelagem de Sistemas de Controle</h1>
-    <p class="subtitle">Descreva o sistema e use a IA para obter a função de transferência</p>
+        <p class="subtitle">Descreva o sistema e clique em Resolver — o ensemble escolhe a análise mais votada</p>
   </header>
 
   <main class="main">
@@ -18,17 +18,10 @@
       <div class="botoes">
         <button
           class="btn btn-primary"
-          (click)="gerarApenasFT()"
+          (click)="resolver()"
           [disabled]="loading() || !descricao().trim()"
         >
-          Gerar apenas FT
-        </button>
-        <button
-          class="btn btn-secondary"
-          (click)="gerarAnaliseCompleta()"
-          [disabled]="loading() || !descricao().trim()"
-        >
-          Análise completa
+          Resolver
         </button>
       </div>
     </section>
@@ -79,23 +72,41 @@
                 <pre class="json">{{ grafoDiagramaJson() }}</pre>
               </details>
             }
-            @if (verificacaoEnsembleExecutada()) {
+            @if (ensembleProvedorVencedor(); as vencedor) {
               <h3>
                 Consenso entre provedores (Ensemble)
-                @if (verificacaoEnsembleOk()) {
-                  <span class="selo selo-ok">✓ concorda com o consenso</span>
+                @if (ensembleExecutado() && ensembleConcordancia(); as concordancia) {
+                  <span class="selo selo-ok">voto {{ concordancia }}</span>
                 } @else {
-                  <span class="selo selo-erro">✗ diverge do consenso</span>
+                  <span class="selo selo-ok">um provedor</span>
                 }
               </h3>
+              <p class="ensemble-detalhe">Resposta escolhida: <code>{{ vencedor }}</code></p>
               @if (ensembleConcordancia(); as concordancia) {
-                <p class="ensemble-detalhe">Concordância entre provedores: {{ concordancia }}</p>
+                <p class="ensemble-detalhe">Concordância: {{ concordancia }}</p>
               }
               @if (ensembleConsensoFt(); as consenso) {
-                <p class="ensemble-detalhe">FT de consenso: <code>{{ consenso }}</code></p>
+                <p class="ensemble-detalhe">FT votada: <code>{{ consenso }}</code></p>
               }
-              @if (mensagemVerificacaoEnsemble(); as msg) {
-                <p class="mensagem-verificacao">{{ msg }}</p>
+              @if (ensembleMensagem(); as msg) {
+                <p class="ensemble-detalhe">{{ msg }}</p>
+              }
+              @if (ensembleRespostas().length > 0) {
+                <details class="grafo-json-details">
+                  <summary>Voto de cada provedor</summary>
+                  <ul>
+                    @for (r of ensembleRespostas(); track r.provedor) {
+                      <li class="ensemble-detalhe">
+                        <strong>{{ r.provedor }}</strong>
+                        @if (r.sucesso) {
+                          — {{ r.funcao_transferencia }}
+                        } @else {
+                          — falhou ({{ r.erro }})
+                        }
+                      </li>
+                    }
+                  </ul>
+                </details>
               }
             }
             <h3>Resultado</h3>

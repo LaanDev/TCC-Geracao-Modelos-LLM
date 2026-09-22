@@ -61,17 +61,10 @@ export class App {
     return typeof msg === 'string' ? msg : null;
   });
 
-  // Consenso entre provedores de LLM (Google/Anthropic/Groq) via equivalência simbólica.
-  protected readonly verificacaoEnsembleExecutada = computed(
-    () => this.resultado()?.['verificacao_ensemble_executada'] === true
+  // Ensemble: o payload exibido já é o vencedor do voto.
+  protected readonly ensembleExecutado = computed(
+    () => this.resultado()?.['ensemble_executado'] === true
   );
-  protected readonly verificacaoEnsembleOk = computed(
-    () => this.resultado()?.['verificacao_ensemble_ok'] === true
-  );
-  protected readonly mensagemVerificacaoEnsemble = computed<string | null>(() => {
-    const msg = this.resultado()?.['mensagem_verificacao_ensemble'];
-    return typeof msg === 'string' ? msg : null;
-  });
   protected readonly ensembleConcordancia = computed<string | null>(() => {
     const val = this.resultado()?.['ensemble_concordancia'];
     return typeof val === 'string' ? val : null;
@@ -79,6 +72,20 @@ export class App {
   protected readonly ensembleConsensoFt = computed<string | null>(() => {
     const val = this.resultado()?.['ensemble_consenso_ft'];
     return typeof val === 'string' ? val : null;
+  });
+  protected readonly ensembleProvedorVencedor = computed<string | null>(() => {
+    const val = this.resultado()?.['ensemble_provedor_vencedor'];
+    return typeof val === 'string' ? val : null;
+  });
+  protected readonly ensembleMensagem = computed<string | null>(() => {
+    const val = this.resultado()?.['ensemble_mensagem'];
+    return typeof val === 'string' ? val : null;
+  });
+  protected readonly ensembleRespostas = computed<
+    { provedor: string; sucesso: boolean; funcao_transferencia?: string; erro?: string }[]
+  >(() => {
+    const lista = this.resultado()?.['ensemble_respostas'];
+    return Array.isArray(lista) ? lista : [];
   });
 
   // JSON do resultado para exibição, com a lista de imagens (potencialmente enorme) resumida,
@@ -117,11 +124,7 @@ export class App {
     }
   }
 
-  protected gerarApenasFT(): void {
-    this.chamarAPI('/gerar-apenas-ft', { descricao: this.descricao() });
-  }
-
-  protected gerarAnaliseCompleta(): void {
+  protected resolver(): void {
     this.chamarAPI('/gerar-analise-completa', { descricao: this.descricao() });
   }
 }

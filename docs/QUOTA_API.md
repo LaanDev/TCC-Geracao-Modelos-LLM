@@ -83,7 +83,7 @@ Reinicie a API após alterar o `.env`.
 ### 4. Reduzir chamadas durante testes
 
 - Evite clicar várias vezes em "Execute" no Swagger.
-- Use primeiro o endpoint **`/gerar-apenas-ft`** (menos tokens que a análise completa).
+- A análise completa chama vários LLMs em paralelo (ensemble). Se bater na cota, espere um minuto e tente de novo.
 
 ---
 

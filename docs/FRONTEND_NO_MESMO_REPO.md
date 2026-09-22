@@ -91,15 +91,15 @@ A API já está com CORS configurado (incluindo `allow_origins`), então um fron
 
 - **Pode fazer no mesmo repositório?** Sim.
 - **Onde colocar?** Criar uma pasta **`frontend/`** na raiz e deixar a API como está.
-- **Como rodar?** API: `python main.py` (porta 8000). Frontend: dentro de `frontend/`, `npm install` e `npm run dev` (ou equivalente) em outra porta.
+- **Como rodar?** API: `python main.py` (porta 8000). Frontend: dentro de `frontend/`, `npm install` e `npm start` em outra porta.
 - **Para o TCC:** depois pode servir o build do frontend pelo próprio FastAPI para ter um único deploy.
 
-O frontend em **React (Vite)** já foi criado na pasta **`frontend/`**. Para rodar:
+O frontend em **Angular** já está na pasta **`frontend/`**. Para rodar:
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm start
 ```
 
 Depois acesse http://localhost:3000. A API deve estar rodando em outro terminal (`python main.py`). Consulte **`frontend/README.md`** para mais detalhes.

@@ -9,11 +9,8 @@ transferência equivalente pela Fórmula de Ganho de Mason, e compara simbolicam
 certo (dois painéis + palavras-chave), sem nunca confirmar que o diagrama desenhado
 de fato reduz à FT anunciada.
 
-A lógica de redução está implementada, testada e conectada aos prompts e aos três
-endpoints que produzem diagrama: `prompts.py` pede `grafo_diagrama` em
-PROMPT_ANALISE_COMPLETA, PROMPT_DIAGRAMA_POR_FT e PROMPT_FT_E_DIAGRAMA, e `main.py`
-chama `_attach_graph_verification()` em `/gerar-diagrama-por-ft`,
-`/gerar-ft-e-diagrama` e `/gerar-analise-completa`.
+A lógica de redução está ligada ao fluxo único `/gerar-analise-completa`:
+`prompts.py` pede `grafo_diagrama` e `main.py` chama `_attach_graph_verification()`.
 """
 
 from __future__ import annotations

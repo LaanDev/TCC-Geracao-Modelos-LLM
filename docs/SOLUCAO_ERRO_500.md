@@ -1,6 +1,6 @@
 # Solução: Erro 500 ao Chamar a API
 
-Se você recebe **500 Internal Server Error** ao testar os endpoints (`/gerar-apenas-ft`, `/gerar-analise-completa`, etc.), siga estes passos.
+Se você recebe **500 Internal Server Error** ao testar `/gerar-analise-completa`, siga estes passos.
 
 ---
 

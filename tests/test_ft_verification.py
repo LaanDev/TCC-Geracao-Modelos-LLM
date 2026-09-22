@@ -1,4 +1,4 @@
-"""Testes do verificador simbólico pós-LLM (casos canônicos e layout físico)."""
+"""Testes do verificador simbólico pós-LLM (casos canônicos)."""
 
 import os
 import sys
@@ -9,11 +9,7 @@ from sympy import degree, fraction, simplify, symbols
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ft_verification import (
-    codigo_diagrama_sugere_layout_fisico_blocos,
-    descricao_esquema_fisico_mecanico,
-    merge_outcomes_ft_e_diagrama,
     parse_transfer_function_expr,
-    verify_diagram_physical_layout,
     verify_transfer_function,
 )
 
@@ -27,7 +23,7 @@ class TestExtracaoFtEmTextoVerboso:
     """
 
     def test_atribuicao_encadeada_com_continuacao_apos_quebra_de_linha(self):
-        # Mesmo padrão do exemplo few-shot em prompts.py (PROMPT_FT contém este formato).
+        # Mesmo padrão do exemplo few-shot em prompts.py.
         ft = (
             "G(s) = Vc(s)/Vin(s) = 1 / (RCs + 1)\n\n"
             "Forma padrão de 1ª ordem: G(s) = K / (τs + 1)\n"
@@ -264,70 +260,3 @@ def test_suspensao_ativa_nao_cai_no_msd_1gdl():
     out = verify_transfer_function(desc, ft_wrong_1gdl)
     assert out.caso_canonico_id == "quarter_car_ativo_x1_u"
     assert out.ok is False
-
-
-@pytest.mark.unit
-def test_descricao_mecanica_detectada():
-    desc = "Duas massas M1 e M2 ligadas por mola k2 com amortecedores b."
-    assert descricao_esquema_fisico_mecanico(desc) is True
-
-
-@pytest.mark.unit
-def test_layout_fisico_exige_subplots():
-    desc = (
-        "Sistema massa-mola-amortecedor translacional com massa M, "
-        "mola K e amortecedor B; força F e deslocamento x."
-    )
-    bad = "import matplotlib.pyplot as plt\nplt.figure(); plt.plot([0, 1])\nplt.show()"
-    out = verify_diagram_physical_layout(desc, bad)
-    assert out is not None
-    assert out.ok is False
-
-    ok_code = (
-        "import matplotlib.pyplot as plt\n"
-        "_, (a, b) = plt.subplots(1, 2)\n"
-        "a.text(0.5, 0.5, 'Massa M, mola K e amortecedor B')\n"
-        "b.plot([0])\nplt.show()"
-    )
-    out2 = verify_diagram_physical_layout(desc, ok_code)
-    assert out2 is not None
-    assert out2.ok is True
-
-
-@pytest.mark.unit
-def test_layout_fisico_rejeita_dois_paineis_vazios():
-    """Estrutura 1x2 correta não basta: sem rótulos de massa/mola/amortecedor, é reprovado."""
-    desc = (
-        "Sistema massa-mola-amortecedor translacional com massa M, "
-        "mola K e amortecedor B; força F e deslocamento x."
-    )
-    paineis_vazios = (
-        "import matplotlib.pyplot as plt\n"
-        "_, (a, b) = plt.subplots(1, 2); a.plot([0]); b.plot([0])\nplt.show()"
-    )
-    out = verify_diagram_physical_layout(desc, paineis_vazios)
-    assert out is not None
-    assert out.ok is False
-    assert out.layout_diagrama_fisico_ok is False
-
-
-@pytest.mark.unit
-def test_codigo_detecta_subplot_1x2():
-    assert codigo_diagrama_sugere_layout_fisico_blocos("plt.subplot ( 1 , 2 , 1)") is True
-    assert codigo_diagrama_sugere_layout_fisico_blocos("plt.plot([1])") is False
-
-
-@pytest.mark.unit
-def test_merge_ft_e_layout():
-    from ft_verification import FTVerificationOutcome
-
-    ft_ok = FTVerificationOutcome(ok=True, parseavel=True)
-    lay_bad = FTVerificationOutcome(
-        ok=False,
-        problemas=["layout_diag: ..."],
-        layout_diagrama_fisico_ok=False,
-        parseavel=False,
-    )
-    merged = merge_outcomes_ft_e_diagrama(ft_ok, lay_bad)
-    assert merged.ok is False
-    assert merged.layout_diagrama_fisico_ok is False

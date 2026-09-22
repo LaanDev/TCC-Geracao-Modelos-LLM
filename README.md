@@ -22,34 +22,14 @@ O objetivo é criar um "tutor virtual" que não apenas resolve o problema, mas e
 
 ## 2. Funcionalidades e Endpoints da API
 
-A ferramenta possui um *backend* robusto desenvolvido em **FastAPI**, expondo cinco rotas principais:
+A ferramenta tem um fluxo único:
 
-- **`POST /gerar-apenas-ft`**: Rota rápida. Recebe a descrição e retorna apenas a função de transferência final para validação ágil.
-- **`POST /gerar-diagrama-por-ft`**: Recebe a FT e devolve código Python que desenha **diagrama de blocos completo** (matplotlib: caixas, setas, somadores, ramo de realimentação quando aplicável, mais vista equivalente com $H(s)=1$ além da cadeia $U\to[G]\to Y$ quando só se conhece a FT) e, se possível, simulação com `control`. O backend **executa** esse código em subprocesso (sem janela), coleta os `.png` gerados e devolve em **`diagramas_png_base64`** (lista de strings Base64 puras; no React/HTML use `src={\`data:image/png;base64,${x}\`}`).
-- **`POST /gerar-ft-e-diagrama`**: Igual fluxo combinado em um JSON — FT derivada da descrição mais o mesmo tipo de código de diagrama de blocos alinhado ao enunciado (sem inventar malha fechada se for aberta explícita), com **`diagramas_png_base64`** após execução automática.
+- **`GET /`**: health check (API online, versão, modelo).
+- **`POST /gerar-analise-completa`**: o aluno descreve o sistema; os LLMs configurados (Google, Anthropic, Groq, OpenAI — cada um só entra se tiver chave) geram a análise em paralelo. O **voto** pela função de transferência (equivalência simbólica via SymPy) escolhe qual análise completa é devolvida: lei física, EDO, Laplace, $G(s)$, interpretação, grafo do diagrama e imagens.
 
-Campos extras nessas respostas: `execucao_diagrama_ok` (bool), `log_execucao_diagrama` (texto quando a execução falha ou quando `DEBUG=true`). Variáveis de ambiente: `EXECUTE_DIAGRAM_CODE` e `DIAGRAM_EXECUTION_TIMEOUT` (ver `.env.example`). **Atenção:** executar código gerado pelo LLM tem risco — em produção considere desativar ou isolar mais fortemente.
+O grafo é conferido pela Fórmula de Ganho de Mason. Gabaritos canônicos (RC, RLC, massa-mola, *quarter-car*) sinalizam se a FT bate com o esperado, sem segunda chamada ao modelo.
 
-- **`POST /gerar-analise-completa`**: Rota principal. Retorna um objeto JSON detalhado contendo todo o raciocínio matemático, a explicação didática e o código para geração do diagrama.
-- **`POST /validar-minha-resposta`**: Rota de tutor. O aluno envia o problema e a sua própria resposta; a IA avalia se está correto e fornece feedback construtivo.
-
-### Verificação automática, custo e latência
-
-`/gerar-apenas-ft`, `/gerar-diagrama-por-ft` e `/gerar-ft-e-diagrama` rodam um verificador simbólico
-(SymPy + gabaritos canônicos para RC, RLC, massa-mola-amortecedor e suspensão *quarter-car*) depois da
-resposta do LLM. Quando a verificação falha, o backend faz **uma segunda chamada ao LLM** com um prompt
-de correção curto — sempre, mesmo quando a falha é um parsing irrecuperável (FT sem `G(s) = ...`, texto
-malformado), já que o próprio prompt de correção pede esse formato de novo. Isso significa que, no pior
-caso, essas três rotas custam **até 2× as chamadas ao LLM** de uma única requisição — relevante em cotas
-gratuitas do Gemini/Gemma. Para desativar o retry (mantendo só o sinalizador de falha na resposta) ou a
-verificação inteira, use `FT_VERIFICATION_RETRY_LLM=false` / `FT_VERIFICATION_ENABLED=false` no `.env`.
-`/gerar-analise-completa` também roda a verificação, mas **sem retry** (uma correção precisaria refazer a
-análise completa — lei aplicada, EDO, Laplace etc. — custando uma segunda chamada tão cara quanto a primeira).
-
-As três rotas que geram diagrama (`/gerar-diagrama-por-ft`, `/gerar-ft-e-diagrama`,
-`/gerar-analise-completa` quando há `codigo_diagrama`) também executam o código do LLM em subprocesso
-isolado, com timeout de `DIAGRAM_EXECUTION_TIMEOUT` (padrão 45s). Some isso ao tempo de uma possível
-segunda chamada ao LLM: o pior caso realista para essas rotas é *2× latência do LLM + até 45s de subprocesso*.
+Com menos de 2 provedores, não há voto: usa-se o único disponível (em geral o Gemini). Variáveis: `ENSEMBLE_ENABLED`, `EXECUTE_DIAGRAM_CODE`, `DIAGRAM_EXECUTION_TIMEOUT` (ver `.env.example`). Executar código gerado pelo LLM tem risco — em um uso mais restrito, desative `EXECUTE_DIAGRAM_CODE`.
 
 ## 3. Tecnologias Utilizadas
 
@@ -60,7 +40,7 @@ O projeto foi construído sobre uma *stack* moderna de desenvolvimento em Python
 - **Servidor:** `Uvicorn` (servidor ASGI de alta performance).
 - **IA Generativa:** `google-genai` (SDK unificado; integração com modelos Gemini/Gemma).
 - **Engenharia:** `control` (Biblioteca Python de Sistemas de Controle).
-- **Frontend:** React (Vite) – interface para consumir a API.
+- **Frontend:** Angular – interface com um botão **Resolver**.
 - **Ambiente:** Gerenciado via `venv` (backend) e `npm` (frontend).
 
 ## 4. Status do Projeto
@@ -69,7 +49,7 @@ O projeto foi construído sobre uma *stack* moderna de desenvolvimento em Python
 ✅ **Fase 2:** Desenvolvimento do Backend/API (`main.py`).
 ✅ **Fase 3:** Implementação da Engenharia de Prompt e Saídas Estruturadas (JSON).
 ✅ **Fase 4:** Validação com problemas canônicos (Massa-Mola, RLC, Tanques, etc.).
-✅ **Fase 5:** Desenvolvimento do Frontend (Interface Visual em React).
+✅ **Fase 5:** Desenvolvimento do Frontend (Interface Visual em Angular).
 
 ### Estrutura do repositório
 
@@ -182,19 +162,19 @@ Lá você poderá:
 
 **Alternativa:** Acesse **http://127.0.0.1:8000/redoc** para documentação no formato ReDoc.
 
-#### 8. Executar o Frontend (React) – opcional
-Para usar a interface web em React:
+#### 8. Executar o Frontend (Angular)
+Para usar a interface web:
 
 1. **Instale o Node.js** (se ainda não tiver): https://nodejs.org/
 2. **Com a API rodando** em um terminal, abra outro terminal e execute:
    ```powershell
    cd frontend
    npm install
-   npm run dev
+   npm start
    ```
-3. Acesse **http://localhost:3000** no navegador.
+3. Acesse **http://localhost:3000** no navegador e clique em **Resolver**.
 
-O frontend chama a API automaticamente (proxy configurado no Vite). Consulte [`frontend/README.md`](frontend/README.md) para mais detalhes.
+O frontend chama `/gerar-analise-completa` (proxy no Angular CLI). Consulte [`frontend/README.md`](frontend/README.md).
 
 ---
 
@@ -214,7 +194,7 @@ pytest tests/ -v
 docker-compose up -d api
 
 # Frontend (em outro terminal, com a API rodando)
-cd frontend && npm install && npm run dev
+cd frontend && npm install && npm start
 ```
 
 ---

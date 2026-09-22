@@ -3,7 +3,6 @@ Verificação pós-geração da função de transferência (anti-delírio leve).
 
 - Sempre tenta parsing simbólico (forma racional em s).
 - Casos canônicos: compara com referência SymPy + grau do denominador.
-- Diagrama físico: heurística de layout em duas colunas quando a descrição é mecânica translacional.
 """
 
 from __future__ import annotations
@@ -32,55 +31,6 @@ def _strip_accents(text: str) -> str:
 
 def normalize_descricao(text: str) -> str:
     return " ".join(_strip_accents(text).lower().split())
-
-
-def descricao_esquema_fisico_mecanico(descricao: str) -> bool:
-    """
-    Heurística: enunciados que devem obrigar dois painéis (físico + blocos).
-    """
-    d = normalize_descricao(descricao)
-
-    # `d` já passou por normalize_descricao (sem acentos); formas acentuadas nunca
-    # casariam aqui, então mantemos só as variantes que de fato podem aparecer.
-    mechanics = (
-        "massa",
-        "mola",
-        "molad",
-        "amortecedor",
-        "amortec",
-        "suspensao",
-    )
-    if not any(k in d for k in mechanics):
-        return False
-
-    hints = (
-        "deslocamento",
-        "forca",
-        "grau de liberdade",
-        "newton",
-        "translaci",
-        "mecani",
-    )
-    if any(h in d for h in hints):
-        return True
-    if ("massa" in d or "massas" in d) and ("mola" in d or "molas" in d):
-        return True
-    return False
-
-
-def codigo_diagrama_sugere_layout_fisico_blocos(codigo: str) -> bool:
-    """Detecta layout típico 1×2 (esquema físico | diagrama de blocos)."""
-    c = codigo.lower()
-    c_nospace = c.replace(" ", "")
-    if "subplots" in c and "1,2" in c_nospace:
-        return True
-    if re.search(r"\bsubplots\s*\(\s*1\s*,\s*2\b", c):
-        return True
-    if re.search(r"\bsubplot\s*\(\s*1\s*,\s*2\s*,", c):
-        return True
-    if "gridspec" in c and "ncols=2" in c_nospace:
-        return True
-    return False
 
 
 _GS_ASSIGN = re.compile(r"(?:[Gg]|T)(?:_\w+)?\s*\(\s*s\s*\)\s*=")
@@ -394,7 +344,6 @@ class FTVerificationOutcome:
     problemas: list[str] = field(default_factory=list)
     caso_canonico_id: Optional[str] = None
     parseavel: bool = False
-    layout_diagrama_fisico_ok: Optional[bool] = None
 
 
 def verify_transfer_function(descricao: str, funcao_transferencia: str) -> FTVerificationOutcome:
@@ -410,7 +359,6 @@ def verify_transfer_function(descricao: str, funcao_transferencia: str) -> FTVer
             problemas=[f"parse_ft: falha ao interpretar G(s): {exc}"],
             caso_canonico_id=None,
             parseavel=False,
-            layout_diagrama_fisico_ok=None,
         )
 
     caso = _matching_canonical(d_norm)
@@ -420,7 +368,6 @@ def verify_transfer_function(descricao: str, funcao_transferencia: str) -> FTVer
             problemas=[],
             caso_canonico_id=None,
             parseavel=parseavel,
-            layout_diagrama_fisico_ok=None,
         )
 
     canon_problems: list[str] = []
@@ -441,81 +388,6 @@ def verify_transfer_function(descricao: str, funcao_transferencia: str) -> FTVer
         problemas=problemas,
         caso_canonico_id=caso.id,
         parseavel=True,
-        layout_diagrama_fisico_ok=None,
-    )
-
-
-_PHYSICAL_ELEMENT_HINTS = ("mola", "amortecedor", "amortec", "massa")
-
-
-def codigo_menciona_elementos_fisicos(codigo: str) -> bool:
-    """
-    Heurística complementar ao layout 1×2: exige que o código ao menos rotule/mencione
-    massa/mola/amortecedor, para não aceitar dois painéis estruturalmente corretos porém
-    vazios (dois `plot([0])` genéricos, por exemplo) como esquema físico válido.
-    """
-    c = codigo.lower()
-    return any(hint in c for hint in _PHYSICAL_ELEMENT_HINTS)
-
-
-def verify_diagram_physical_layout(descricao: str, codigo_diagrama: str) -> Optional[FTVerificationOutcome]:
-    """Retorna apenas flags de diagrama quando descrição for mecânica; senão None (N/A)."""
-    if not descricao_esquema_fisico_mecanico(descricao):
-        return None
-
-    has_layout = codigo_diagrama_sugere_layout_fisico_blocos(codigo_diagrama)
-    has_elements = codigo_menciona_elementos_fisicos(codigo_diagrama)
-    if has_layout and has_elements:
-        return FTVerificationOutcome(
-            ok=True,
-            problemas=[],
-            caso_canonico_id=None,
-            parseavel=False,
-            layout_diagrama_fisico_ok=True,
-        )
-
-    problemas = []
-    if not has_layout:
-        problemas.append(
-            "layout_diag: para sistema mecânico translacional, o código deve usar layout com "
-            "**dois painéis lado a lado** (ex.: `plt.subplots(1, 2, ...)`): esquema físico (massas/"
-            "molas/amortecedores rotulados) + diagrama de blocos no painel seguinte.",
-        )
-    if not has_elements:
-        problemas.append(
-            "layout_diag: o código não menciona massa/mola/amortecedor — dois painéis vazios "
-            "não satisfazem o esquema físico exigido; rotule os elementos no painel esquerdo.",
-        )
-    return FTVerificationOutcome(
-        ok=False,
-        problemas=problemas,
-        caso_canonico_id=None,
-        parseavel=False,
-        layout_diagrama_fisico_ok=False,
-    )
-
-
-def merge_outcomes_ft_e_diagrama(
-    ft_out: FTVerificationOutcome,
-    layout_out: Optional[FTVerificationOutcome],
-) -> FTVerificationOutcome:
-    if layout_out is None:
-        return FTVerificationOutcome(
-            ok=ft_out.ok,
-            problemas=list(ft_out.problemas),
-            caso_canonico_id=ft_out.caso_canonico_id,
-            parseavel=ft_out.parseavel,
-            layout_diagrama_fisico_ok=None,
-        )
-
-    ok = ft_out.ok and layout_out.ok
-    prob = list(ft_out.problemas) + list(layout_out.problemas)
-    return FTVerificationOutcome(
-        ok=ok,
-        problemas=prob,
-        caso_canonico_id=ft_out.caso_canonico_id,
-        parseavel=ft_out.parseavel,
-        layout_diagrama_fisico_ok=layout_out.layout_diagrama_fisico_ok,
     )
 
 
