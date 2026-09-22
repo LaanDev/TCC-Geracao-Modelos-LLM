@@ -171,18 +171,26 @@ def _attach_graph_verification(payload: dict[str, Any], funcao_transferencia: st
 
 
 def _attach_diagrams(payload: dict[str, Any]) -> None:
-    exe = execute_diagram_python(payload.get("codigo_diagrama") or "", save_prefix="diagrama")
-    payload["diagramas_png_base64"] = list(exe.diagramas_png_base64)
-    payload["execucao_diagrama_ok"] = exe.execucao_ok
-    payload["diagramas_arquivos"] = list(exe.diagramas_arquivos)
-    payload["log_execucao_diagrama"] = (
-        exe.log_execucao if (not exe.execucao_ok or settings.debug) else None
-    )
-    logger.info(
-        "exec diagram: ok=%s imagens=%d",
-        exe.execucao_ok,
-        len(exe.diagramas_png_base64),
-    )
+    """Anexa imagens: opcionalmente executa código da LLM; sempre tenta o render do grafo."""
+    codigo = (payload.get("codigo_diagrama") or "").strip()
+    if settings.execute_diagram_code and codigo:
+        exe = execute_diagram_python(codigo, save_prefix="diagrama")
+        payload["diagramas_png_base64"] = list(exe.diagramas_png_base64)
+        payload["execucao_diagrama_ok"] = exe.execucao_ok
+        payload["diagramas_arquivos"] = list(exe.diagramas_arquivos)
+        payload["log_execucao_diagrama"] = (
+            exe.log_execucao if (not exe.execucao_ok or settings.debug) else None
+        )
+        logger.info(
+            "exec diagram: ok=%s imagens=%d",
+            exe.execucao_ok,
+            len(exe.diagramas_png_base64),
+        )
+    else:
+        payload.setdefault("diagramas_png_base64", [])
+        payload["execucao_diagrama_ok"] = False
+        payload.setdefault("diagramas_arquivos", [])
+        payload["log_execucao_diagrama"] = None
 
     grafo_data = payload.get("grafo_diagrama")
     if not settings.graph_render_enabled or not grafo_data:
@@ -245,7 +253,7 @@ def api_gerar_analise_completa(request: ProblemaRequest):
     _attach_ensemble(payload, outcome)
     _attach_verification(payload, request.descricao)
     _attach_graph_verification(payload, payload["funcao_transferencia"])
-    if payload.get("codigo_diagrama"):
+    if payload.get("grafo_diagrama") or payload.get("codigo_diagrama"):
         _attach_diagrams(payload)
     return payload
 

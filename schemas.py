@@ -72,7 +72,10 @@ class AnaliseCompletaResponse(BaseModel):
     )
     codigo_diagrama: Optional[str] = Field(
         None,
-        description="Código Python para gerar o diagrama de blocos usando python-control",
+        description=(
+            "Opcional/legado: código Python de plotagem. O fluxo atual não solicita "
+            "isso ao LLM — o diagrama vem do grafo_diagrama + render determinístico."
+        ),
     )
     verificacao_executada: bool = Field(
         False,
@@ -135,11 +138,14 @@ class AnaliseCompletaResponse(BaseModel):
     )
     diagramas_png_base64: List[str] = Field(
         default_factory=list,
-        description="PNG em Base64 quando codigo_diagrama é executado automaticamente",
+        description=(
+            "PNG em Base64: render determinístico do grafo e, se habilitado, "
+            "figuras da execução de codigo_diagrama"
+        ),
     )
     execucao_diagrama_ok: bool = Field(
         False,
-        description="True se a execução automática do codigo_diagrama produziu PNG",
+        description="True se a execução automática de codigo_diagrama (legado) produziu PNG",
     )
     log_execucao_diagrama: Optional[str] = Field(
         None,

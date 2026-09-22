@@ -23,8 +23,9 @@ class Settings(BaseSettings):
     llm_timeout: int = 60
     llm_max_retries: int = 3
 
-    # Execução automática do código gerado para diagramas (subprocesso isolado)
-    execute_diagram_code: bool = True
+    # Execução do código matplotlib gerado pelo LLM (degrau/pzmap/diagrama "à mão").
+    # Desligada por padrão: o diagrama confiável vem de graph_render a partir do grafo.
+    execute_diagram_code: bool = False
     diagram_execution_timeout: int = 45
     # Persistência dos PNG gerados em disco (pasta relativa à raiz do projeto)
     diagram_save_to_disk: bool = True
@@ -38,9 +39,8 @@ class Settings(BaseSettings):
     # silenciosamente (não bloqueia a resposta), então é seguro deixar ligada por padrão.
     graph_validation_enabled: bool = True
 
-    # Renderização determinística do diagrama (matplotlib) a partir do "grafo_diagrama"
-    # já validado — não depende do LLM escrever o código de desenho. Roda em paralelo ao
-    # diagrama que o LLM gera (não substitui), então a resposta traz os dois.
+    # Renderização determinística do diagrama (matplotlib) a partir do "grafo_diagrama".
+    # Caminho principal de imagem — não depende de código gerado pelo LLM.
     graph_render_enabled: bool = True
 
     # Ensemble: cada provedor gera a análise completa em paralelo; o voto (equivalência

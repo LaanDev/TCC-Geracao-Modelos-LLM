@@ -105,16 +105,35 @@ class TestEndpointAnaliseCompleta:
             assert chave in data
 
     @pytest.mark.api
+    @patch("main.save_diagram_pngs_to_disk", return_value=["diagrams/diagrama_grafo_ex1.png"])
+    @patch("main.render_diagram_graph", return_value=b"\x89PNG\r\n\x1a\n")
     @patch("main.execute_diagram_python")
     @patch("main.run_ensemble_analise")
-    def test_analise_completa_retorna_codigo(self, mock_ens, mock_exec, client):
-        mock_ens.return_value = _outcome()
-        mock_exec.return_value = _exec_result()
+    def test_analise_completa_renderiza_grafo_sem_codigo(
+        self, mock_ens, mock_exec, mock_render, mock_save, client
+    ):
+        payload = dict(_ANALISE)
+        payload["codigo_diagrama"] = None
+        payload["grafo_diagrama"] = {
+            "nos": [
+                {"id": "u", "tipo": "entrada"},
+                {"id": "g", "tipo": "bloco", "ganho": "1/(R*C*s+1)"},
+                {"id": "y", "tipo": "saida"},
+            ],
+            "arestas": [
+                {"origem": "u", "destino": "g", "sinal": "+"},
+                {"origem": "g", "destino": "y", "sinal": "+"},
+            ],
+        }
+        mock_ens.return_value = _outcome(payload)
         data = client.post(
             "/gerar-analise-completa",
             json={"descricao": "Circuito RC série"},
         ).json()
-        assert "import" in data.get("codigo_diagrama", "")
+        mock_exec.assert_not_called()
+        mock_render.assert_called_once()
+        assert data.get("diagramas_png_base64")
+        assert data.get("execucao_diagrama_ok") is False
 
     @pytest.mark.api
     def test_analise_completa_descricao_invalida(self, client):

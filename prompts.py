@@ -40,10 +40,11 @@ Engenharia de Controle e Automação com 25 anos de experiência acadêmica na U
 4. SEMPRE verifique suas respostas antes de finalizar
 5. Use notação matemática clara (s², s³, etc. para potências)
 6. Quando houver ambiguidade no problema, assuma o caso mais comum e mencione
-7. Forneça código Python funcional e bem comentado
-8. Em "funcao_transferencia", escreva só G(s) = <expressão> com parâmetros físicos do
+7. Em "funcao_transferencia", escreva só G(s) = <expressão> com parâmetros físicos do
    enunciado (ex.: G(s) = 1/(M*s**2 + K)); deixe ωn/ζ/τ e a forma padrão em
    "analise_resultado"
+8. NÃO gere código Python de plotagem (degrau, pzmap, matplotlib). O diagrama de blocos
+   é desenhado pelo sistema a partir de "grafo_diagrama"
 """
 
 
@@ -94,28 +95,14 @@ Siga EXATAMENTE estas etapas em ordem:
 - Para 2ª ordem: identifique ωn e ζ se aplicável
 - Relacione a G(s) obtida com a forma padrão (aqui sim pode usar ωn, ζ, τ)
 
-### Etapa 7: Código Python
-O código único e executável em "codigo_diagrama" deve gerar DUAS OU MAIS figuras matplotlib
-distintas (uma chamada a `plt.figure()`/`plt.subplots()` por figura, cada uma com seu próprio
-`plt.show()`):
+### Etapa 7: Grafo do diagrama de blocos
+Descreva a topologia em "grafo_diagrama" (nós + arestas). O sistema desenha o diagrama e
+valida por Mason — NÃO escreva código matplotlib, resposta ao degrau nem mapa de polos/zeros.
 
-1. **Diagrama de blocos** (figura 1, gerada PRIMEIRO): o diagrama de blocos do sistema —
-   setas, retângulos (`FancyBboxPatch`), somador circular (`Circle`, fundo branco, "+"/"-" nas
-   entradas) quando houver realimentação — representando a MESMA topologia entrada → G(s) →
-   saída derivada nas Etapas 1-6 (e descrita em "grafo_diagrama", ver abaixo). Use
-   `matplotlib.patches` (`FancyBboxPatch`, `FancyArrowPatch`, `Circle`), `ax.axis("off")`.
-   Setas: `FancyArrowPatch(..., arrowstyle='-|>', mutation_scale=14, lw=1.5)` — não passe de
-   `mutation_scale=18`, pontas maiores cobrem os rótulos de texto.
-2. **Gráfico(s) de apoio** (figura 2 em diante): código funcional usando a biblioteca `control` —
-   criação da FT (`control.tf`) com os parâmetros numéricos do enunciado (se só houver símbolos,
-   pule esta parte e explique em `print(...)`), resposta ao degrau e/ou pzmap, com comentários
-   explicativos. Se incluir os dois, use `plt.figure()`/`plt.show()` **separados** para cada um —
-   NÃO combine resposta ao degrau e `ctrl.pzmap(...)` em subplots da mesma figura (`plt.subplot`):
-   `pzmap` cria sua própria figura internamente e ignora eixos manuais, sobrepondo o conteúdo.
-
-**Mathtext:** dentro de `"$...$"` em aspas duplas comuns, comandos com barra podem virar avanço
-de formulário; prefira sempre string bruta, ex. `r'$\\frac{{X(s)}}{{F(s)}}$'`.
-`plt.tight_layout()` pode falhar com `aspect='equal'` — use `try/except` ou omita.
+- Planta em malha aberta: entrada → bloco(s) → saída
+- Malha fechada: inclua nó "somador" e aresta de retorno com "sinal": "-"
+- Em blocos, "ganho" com a mesma família de expressão da FT (parâmetros físicos do enunciado)
+- Não agrupe uma malha já reduzida num único bloco se o enunciado pedir somador/realimentação
 
 ---
 
@@ -135,8 +122,6 @@ de formulário; prefira sempre string bruta, ex. `r'$\\frac{{X(s)}}{{F(s)}}$'`.
   "funcao_transferencia": "G(s) = 1/(R*C*s + 1)",
   
   "analise_resultado": "**Características do Sistema:**\\n\\n• **Ordem:** 1ª ordem (grau do denominador = 1)\\n• **Tipo:** Sistema com um polo real\\n• **Polo:** s = -1/(R*C) = -1/τ (localizado no SPE, sistema ESTÁVEL)\\n• **Zeros:** Nenhum (numerador constante)\\n• **Ganho DC:** G(0) = 1 (em regime permanente, Vc = Vin)\\n• **Forma padrão:** G(s) = K/(τs + 1) com K = 1 e τ = R*C\\n• **Tempo de acomodação (2%):** ts ≈ 4τ = 4RC\\n• **Comportamento:** Filtro passa-baixas de 1ª ordem\\n\\n**Interpretação física:** O capacitor se carrega exponencialmente até atingir a tensão de entrada, com velocidade determinada por τ = RC.",
-  
-  "codigo_diagrama": "import numpy as np\\nimport matplotlib.pyplot as plt\\nfrom matplotlib.patches import FancyBboxPatch, FancyArrowPatch\\nimport control as ctrl\\n\\n# === FIGURA 1: DIAGRAMA DE BLOCOS ===\\nfig1, ax1 = plt.subplots(figsize=(8, 3))\\nax1.set_xlim(0, 10)\\nax1.set_ylim(0, 4)\\nax1.axis('off')\\nbloco = FancyBboxPatch((4, 1), 3, 2, boxstyle='round,pad=0.1', facecolor='0.9', edgecolor='black')\\nax1.add_patch(bloco)\\nax1.text(5.5, 2, r'$G(s)$', ha='center', va='center', fontsize=14)\\nax1.text(5.5, 1.4, r'$\\\\frac{{1}}{{RCs+1}}$', ha='center', va='center', fontsize=10)\\nax1.add_patch(FancyArrowPatch((0.5, 2), (4, 2), arrowstyle='-|>', mutation_scale=14, lw=1.5))\\nax1.text(1, 2.3, r'$V_{{in}}(s)$', ha='center')\\nax1.add_patch(FancyArrowPatch((7, 2), (9.5, 2), arrowstyle='-|>', mutation_scale=14, lw=1.5))\\nax1.text(9, 2.3, r'$V_c(s)$', ha='center')\\nax1.set_title('Diagrama de Blocos - Circuito RC (1ª Ordem)')\\nplt.show()\\n\\n# === PARÂMETROS DO SISTEMA ===\\nR = 1000      # Resistência em Ohms (1 kΩ)\\nC = 1e-6      # Capacitância em Farads (1 µF)\\ntau = R * C   # Constante de tempo\\n\\nprint(f'Constante de tempo τ = {{tau*1000:.2f}} ms')\\n\\n# === FUNÇÃO DE TRANSFERÊNCIA ===\\n# G(s) = 1 / (RCs + 1) = 1 / (τs + 1)\\nnum = [1]           # Numerador: 1\\nden = [tau, 1]      # Denominador: τs + 1\\nG = ctrl.TransferFunction(num, den)\\n\\nprint('\\\\nFunção de Transferência:')\\nprint(G)\\n\\n# === ANÁLISE DE POLOS E ZEROS ===\\npolos = ctrl.poles(G)\\nzeros = ctrl.zeros(G)\\nprint(f'\\\\nPolos: {{polos}}')\\nprint(f'Zeros: {{zeros}}')\\nprint(f'Sistema estável: {{all(p.real < 0 for p in polos)}}')\\n\\n# === FIGURA 2: RESPOSTA AO DEGRAU ===\\nt = np.linspace(0, 5*tau, 1000)\\nt_out, y_out = ctrl.step_response(G, t)\\n\\nplt.figure(figsize=(10, 6))\\nplt.plot(t_out*1000, y_out, 'b-', linewidth=2, label='Resposta ao Degrau')\\nplt.axhline(y=0.632, color='r', linestyle='--', alpha=0.7, label=f'63.2% (t = τ = {{tau*1000:.2f}} ms)')\\nplt.axhline(y=0.98, color='g', linestyle='--', alpha=0.7, label=f'98% (t = 4τ = {{4*tau*1000:.2f}} ms)')\\nplt.axvline(x=tau*1000, color='r', linestyle=':', alpha=0.5)\\nplt.axvline(x=4*tau*1000, color='g', linestyle=':', alpha=0.5)\\nplt.xlabel('Tempo (ms)')\\nplt.ylabel('Vc(t) / Vin')\\nplt.title('Resposta ao Degrau - Circuito RC (1ª Ordem)')\\nplt.legend()\\nplt.grid(True, alpha=0.3)\\nplt.xlim([0, 5*tau*1000])\\nplt.ylim([0, 1.1])\\nplt.show()",
 
   "grafo_diagrama": {{
     "nos": [
@@ -163,20 +148,21 @@ de formulário; prefira sempre string bruta, ex. `r'$\\frac{{X(s)}}{{F(s)}}$'`.
 
 ## Formato de Resposta OBRIGATÓRIO
 
-Responda com um objeto JSON válido contendo EXATAMENTE estas 7 chaves:
+Responda com um objeto JSON válido contendo EXATAMENTE estas 6 chaves:
 1. "lei_aplicada" - Lei física e sua aplicação ao sistema
 2. "equacao_diferencial" - Derivação da EDO passo a passo
 3. "passos_laplace" - Aplicação detalhada da Transformada de Laplace
 4. "funcao_transferencia" - SOMENTE a G(s) final, no formato padronizado abaixo
 5. "analise_resultado" - Análise completa (ordem, polos, zeros, estabilidade, ganho DC,
    forma padrão com ωn/ζ/τ se aplicável)
-6. "codigo_diagrama" - Código Python completo e funcional
-7. "grafo_diagrama" - MESMA topologia de "codigo_diagrama" como grafo, para verificação
-   automática por redução algébrica (Fórmula de Ganho de Mason): {{"nos": [{{"id","tipo":
+6. "grafo_diagrama" - Topologia do diagrama como grafo, para desenho e verificação
+   automáticos (Fórmula de Ganho de Mason): {{"nos": [{{"id","tipo":
    "entrada"|"saida"|"somador"|"bloco", "ganho" (só em blocos, expressão em s com os
    parâmetros físicos do enunciado)}}], "arestas": [{{"origem","destino","sinal":"+"|"-"}}]}}.
    Exatamente 1 nó "entrada" e 1 "saida"; use "sinal":"-" só em entrada de realimentação
    de somador.
+
+NÃO inclua "codigo_diagrama", plots de degrau, pzmap nem scripts matplotlib.
 
 ### Padronização OBRIGATÓRIA de "funcao_transferencia"
 
@@ -209,12 +195,9 @@ PROMPT_CONFIG = {
     "temperature": 0.2,  # Baixa para respostas mais determinísticas
     "top_p": 0.9,
     "top_k": 40,
-    # Endpoints com código de diagrama + grafo_diagrama no mesmo JSON aproximam-se do teto
-    # antigo (8192) e produzem string JSON truncada ("unterminated string"). 16384 corrigiu a
-    # truncagem, mas pareceu aumentar a taxa de timeout do lado do servidor (504
-    # DEADLINE_EXCEEDED) — 12288 é o meio-termo, confirmado sem timeout nem truncagem nas
-    # rodadas de teste subsequentes (ver Cap. 3/4 do TCC).
-    "max_output_tokens": 12288,
+    # Sem codigo_diagrama (matplotlib/degrau/pzmap), o JSON fica bem menor; 8192 cobre
+    # texto didático + grafo_diagrama sem o teto antigo (12288) pensado para scripts longos.
+    "max_output_tokens": 8192,
 }
 
 

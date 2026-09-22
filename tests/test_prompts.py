@@ -43,6 +43,7 @@ class TestPromptAnaliseCompleta:
         assert "Etapa" in PROMPT_ANALISE_COMPLETA or "Passo" in PROMPT_ANALISE_COMPLETA
 
     @pytest.mark.unit
+    @pytest.mark.unit
     def test_prompt_analise_solicita_todas_chaves(self):
         chaves = [
             "lei_aplicada",
@@ -50,11 +51,19 @@ class TestPromptAnaliseCompleta:
             "passos_laplace",
             "funcao_transferencia",
             "analise_resultado",
-            "codigo_diagrama",
             "grafo_diagrama",
         ]
         for chave in chaves:
             assert chave in PROMPT_ANALISE_COMPLETA, f"Deve solicitar '{chave}'"
+
+    @pytest.mark.unit
+    def test_prompt_nao_pede_codigo_matplotlib(self):
+        assert "EXATAMENTE estas 6 chaves" in PROMPT_ANALISE_COMPLETA
+        assert "NÃO inclua \"codigo_diagrama\"" in PROMPT_ANALISE_COMPLETA
+        assert "step_response" not in PROMPT_ANALISE_COMPLETA
+        assert "plt.show" not in PROMPT_ANALISE_COMPLETA
+        assert "FancyBboxPatch" not in PROMPT_ANALISE_COMPLETA
+
 
     @pytest.mark.unit
     def test_prompt_padroniza_funcao_transferencia(self):
