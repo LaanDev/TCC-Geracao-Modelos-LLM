@@ -40,7 +40,11 @@ Engenharia de Controle e Automação com 25 anos de experiência acadêmica na U
 4. SEMPRE verifique suas respostas antes de finalizar
 5. Use notação matemática clara (s², s³, etc. para potências)
 6. Quando houver ambiguidade no problema, assuma o caso mais comum e mencione
-7. Forneça código Python funcional e bem comentado"""
+7. Forneça código Python funcional e bem comentado
+8. Em "funcao_transferencia", escreva só G(s) = <expressão> com parâmetros físicos do
+   enunciado (ex.: G(s) = 1/(M*s**2 + K)); deixe ωn/ζ/τ e a forma padrão em
+   "analise_resultado"
+"""
 
 
 # ============================================================================
@@ -79,7 +83,8 @@ Siga EXATAMENTE estas etapas em ordem:
 ### Etapa 5: Função de Transferência
 - Isole G(s) = Saída(s) / Entrada(s)
 - Simplifique ao máximo
-- Identifique a forma padrão (1ª ordem, 2ª ordem, etc.)
+- Em "funcao_transferencia", registre APENAS a expressão final (ver regras de padronização abaixo)
+- A identificação da forma padrão (1ª/2ª ordem, ωn, ζ, τ, K_dc) vai em "analise_resultado"
 
 ### Etapa 6: Análise do Resultado
 - Determine a ordem do sistema
@@ -87,6 +92,7 @@ Siga EXATAMENTE estas etapas em ordem:
 - Analise estabilidade (polos no SPE = estável)
 - Calcule ganho DC (G(0) se existir)
 - Para 2ª ordem: identifique ωn e ζ se aplicável
+- Relacione a G(s) obtida com a forma padrão (aqui sim pode usar ωn, ζ, τ)
 
 ### Etapa 7: Código Python
 O código único e executável em "codigo_diagrama" deve gerar DUAS OU MAIS figuras matplotlib
@@ -126,9 +132,9 @@ de formulário; prefira sempre string bruta, ex. `r'$\\frac{{X(s)}}{{F(s)}}$'`.
   
   "passos_laplace": "Aplicando a Transformada de Laplace com condições iniciais nulas:\\n\\n1. L{{Vin(t)}} = Vin(s)\\n2. L{{Vc(t)}} = Vc(s)\\n3. L{{dVc/dt}} = s·Vc(s) - Vc(0) = s·Vc(s)  [pois Vc(0) = 0]\\n\\nSubstituindo na EDO transformada:\\nRC · s · Vc(s) + Vc(s) = Vin(s)\\n\\nFatorando Vc(s):\\nVc(s) · (RCs + 1) = Vin(s)\\n\\nIsolando a razão Saída/Entrada:\\nVc(s)/Vin(s) = 1/(RCs + 1)",
   
-  "funcao_transferencia": "G(s) = Vc(s)/Vin(s) = 1 / (RCs + 1)\\n\\nForma padrão de 1ª ordem: G(s) = K / (τs + 1)\\nOnde: K = 1 (ganho DC) e τ = RC (constante de tempo)",
+  "funcao_transferencia": "G(s) = 1/(R*C*s + 1)",
   
-  "analise_resultado": "**Características do Sistema:**\\n\\n• **Ordem:** 1ª ordem (grau do denominador = 1)\\n• **Tipo:** Sistema com um polo real\\n• **Polo:** s = -1/RC = -1/τ (localizado no SPE, sistema ESTÁVEL)\\n• **Zeros:** Nenhum (numerador constante)\\n• **Ganho DC:** G(0) = 1 (em regime permanente, Vc = Vin)\\n• **Constante de tempo:** τ = RC segundos\\n• **Tempo de acomodação (2%):** ts ≈ 4τ = 4RC\\n• **Comportamento:** Filtro passa-baixas de 1ª ordem\\n\\n**Interpretação física:** O capacitor se carrega exponencialmente até atingir a tensão de entrada, com velocidade determinada por τ = RC.",
+  "analise_resultado": "**Características do Sistema:**\\n\\n• **Ordem:** 1ª ordem (grau do denominador = 1)\\n• **Tipo:** Sistema com um polo real\\n• **Polo:** s = -1/(R*C) = -1/τ (localizado no SPE, sistema ESTÁVEL)\\n• **Zeros:** Nenhum (numerador constante)\\n• **Ganho DC:** G(0) = 1 (em regime permanente, Vc = Vin)\\n• **Forma padrão:** G(s) = K/(τs + 1) com K = 1 e τ = R*C\\n• **Tempo de acomodação (2%):** ts ≈ 4τ = 4RC\\n• **Comportamento:** Filtro passa-baixas de 1ª ordem\\n\\n**Interpretação física:** O capacitor se carrega exponencialmente até atingir a tensão de entrada, com velocidade determinada por τ = RC.",
   
   "codigo_diagrama": "import numpy as np\\nimport matplotlib.pyplot as plt\\nfrom matplotlib.patches import FancyBboxPatch, FancyArrowPatch\\nimport control as ctrl\\n\\n# === FIGURA 1: DIAGRAMA DE BLOCOS ===\\nfig1, ax1 = plt.subplots(figsize=(8, 3))\\nax1.set_xlim(0, 10)\\nax1.set_ylim(0, 4)\\nax1.axis('off')\\nbloco = FancyBboxPatch((4, 1), 3, 2, boxstyle='round,pad=0.1', facecolor='0.9', edgecolor='black')\\nax1.add_patch(bloco)\\nax1.text(5.5, 2, r'$G(s)$', ha='center', va='center', fontsize=14)\\nax1.text(5.5, 1.4, r'$\\\\frac{{1}}{{RCs+1}}$', ha='center', va='center', fontsize=10)\\nax1.add_patch(FancyArrowPatch((0.5, 2), (4, 2), arrowstyle='-|>', mutation_scale=14, lw=1.5))\\nax1.text(1, 2.3, r'$V_{{in}}(s)$', ha='center')\\nax1.add_patch(FancyArrowPatch((7, 2), (9.5, 2), arrowstyle='-|>', mutation_scale=14, lw=1.5))\\nax1.text(9, 2.3, r'$V_c(s)$', ha='center')\\nax1.set_title('Diagrama de Blocos - Circuito RC (1ª Ordem)')\\nplt.show()\\n\\n# === PARÂMETROS DO SISTEMA ===\\nR = 1000      # Resistência em Ohms (1 kΩ)\\nC = 1e-6      # Capacitância em Farads (1 µF)\\ntau = R * C   # Constante de tempo\\n\\nprint(f'Constante de tempo τ = {{tau*1000:.2f}} ms')\\n\\n# === FUNÇÃO DE TRANSFERÊNCIA ===\\n# G(s) = 1 / (RCs + 1) = 1 / (τs + 1)\\nnum = [1]           # Numerador: 1\\nden = [tau, 1]      # Denominador: τs + 1\\nG = ctrl.TransferFunction(num, den)\\n\\nprint('\\\\nFunção de Transferência:')\\nprint(G)\\n\\n# === ANÁLISE DE POLOS E ZEROS ===\\npolos = ctrl.poles(G)\\nzeros = ctrl.zeros(G)\\nprint(f'\\\\nPolos: {{polos}}')\\nprint(f'Zeros: {{zeros}}')\\nprint(f'Sistema estável: {{all(p.real < 0 for p in polos)}}')\\n\\n# === FIGURA 2: RESPOSTA AO DEGRAU ===\\nt = np.linspace(0, 5*tau, 1000)\\nt_out, y_out = ctrl.step_response(G, t)\\n\\nplt.figure(figsize=(10, 6))\\nplt.plot(t_out*1000, y_out, 'b-', linewidth=2, label='Resposta ao Degrau')\\nplt.axhline(y=0.632, color='r', linestyle='--', alpha=0.7, label=f'63.2% (t = τ = {{tau*1000:.2f}} ms)')\\nplt.axhline(y=0.98, color='g', linestyle='--', alpha=0.7, label=f'98% (t = 4τ = {{4*tau*1000:.2f}} ms)')\\nplt.axvline(x=tau*1000, color='r', linestyle=':', alpha=0.5)\\nplt.axvline(x=4*tau*1000, color='g', linestyle=':', alpha=0.5)\\nplt.xlabel('Tempo (ms)')\\nplt.ylabel('Vc(t) / Vin')\\nplt.title('Resposta ao Degrau - Circuito RC (1ª Ordem)')\\nplt.legend()\\nplt.grid(True, alpha=0.3)\\nplt.xlim([0, 5*tau*1000])\\nplt.ylim([0, 1.1])\\nplt.show()",
 
@@ -161,8 +167,9 @@ Responda com um objeto JSON válido contendo EXATAMENTE estas 7 chaves:
 1. "lei_aplicada" - Lei física e sua aplicação ao sistema
 2. "equacao_diferencial" - Derivação da EDO passo a passo
 3. "passos_laplace" - Aplicação detalhada da Transformada de Laplace
-4. "funcao_transferencia" - G(s) final com forma padrão identificada
-5. "analise_resultado" - Análise completa (ordem, polos, zeros, estabilidade, ganho DC)
+4. "funcao_transferencia" - SOMENTE a G(s) final, no formato padronizado abaixo
+5. "analise_resultado" - Análise completa (ordem, polos, zeros, estabilidade, ganho DC,
+   forma padrão com ωn/ζ/τ se aplicável)
 6. "codigo_diagrama" - Código Python completo e funcional
 7. "grafo_diagrama" - MESMA topologia de "codigo_diagrama" como grafo, para verificação
    automática por redução algébrica (Fórmula de Ganho de Mason): {{"nos": [{{"id","tipo":
@@ -170,6 +177,24 @@ Responda com um objeto JSON válido contendo EXATAMENTE estas 7 chaves:
    parâmetros físicos do enunciado)}}], "arestas": [{{"origem","destino","sinal":"+"|"-"}}]}}.
    Exatamente 1 nó "entrada" e 1 "saida"; use "sinal":"-" só em entrada de realimentação
    de somador.
+
+### Padronização OBRIGATÓRIA de "funcao_transferencia"
+
+Este campo é usado para comparar e votar entre vários modelos. Por isso:
+
+1. Uma ÚNICA linha no formato: G(s) = <expressão>
+2. Sem prosa, sem markdown, sem "Forma padrão", sem listar ωn/ζ/τ aqui
+3. Use os parâmetros FÍSICOS do enunciado (R, C, L, M, K, B, ...), NÃO símbolos genéricos
+   de forma padrão (ωn, ζ, τ) na expressão
+4. Preferência: polinômio em s no denominador, com multiplicação explícita por "*"
+   Exemplos válidos:
+   - G(s) = 1/(R*C*s + 1)
+   - G(s) = 1/(M*s**2 + K)
+   - G(s) = 1/(M*s**2 + B*s + K)
+   Exemplos INVÁLIDOS neste campo:
+   - G(s) = X(s)/F(s) = 1/(M*s**2 + K)   ← sem razão Saída/Entrada; só a expressão
+   - G(s) = (1/M)/(s**2 + ωn**2)          ← não use ωn aqui
+   - Texto longo explicando a forma padrão ← isso vai em "analise_resultado"
 
 Use \\n para quebras de linha dentro das strings.
 Não inclua texto fora do JSON."""
